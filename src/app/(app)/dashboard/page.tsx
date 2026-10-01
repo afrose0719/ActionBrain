@@ -59,11 +59,12 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
         <Stat label="Open tasks" value={open.length} />
         <Stat label="Due today" value={dueToday.length} tone="text-warning-600" />
         <Stat label="Overdue" value={overdue.length} tone="text-danger-600" />
         <Stat label="My commitments" value={commitments.filter((c) => c.direction === "mine").length} />
+        <Stat label="Waiting for" value={commitments.filter((c) => c.direction === "theirs").length} />
         <Stat label="Completed" value={done.length} tone="text-success-600" />
       </div>
 
