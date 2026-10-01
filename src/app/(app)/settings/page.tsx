@@ -5,6 +5,7 @@ import { CalendarDays, KeyRound, ShieldCheck, Smartphone, Trash2, User } from "l
 import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
 import { useInstall } from "@/lib/use-install";
+import { DataControls } from "@/components/data-controls";
 import { PROVIDERS, type ProviderId } from "@/lib/ai/provider";
 
 type Saved = { provider: ProviderId; model: string | null; key_hint: string | null } | null;
@@ -306,6 +307,8 @@ export default function SettingsPage() {
           </div>
         </form>
       </section>
+
+      <DataControls />
     </>
   );
 }

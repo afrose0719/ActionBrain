@@ -1,10 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Brain } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { safeNextPath } from "@/lib/navigation";
+
+// Shown after the user deletes their account (they are sent to /login?deleted=1).
+function DeletedNotice() {
+  const params = useSearchParams();
+  if (!params.get("deleted")) return null;
+  return (
+    <p className="mb-4 rounded-md border border-success-600/20 bg-success-50 px-3 py-2 text-center text-success-600">
+      Your account and all of its data were deleted.
+    </p>
+  );
+}
 
 // After logging in, go back to the page the user was trying to open (only ever a safe path on this site).
 function nextPath() {
@@ -77,6 +88,10 @@ export default function LoginPage() {
           <h1>Welcome to ActionBrain</h1>
           <p className="page-subtitle">Log in or create an account to continue.</p>
         </div>
+
+        <Suspense fallback={null}>
+          <DeletedNotice />
+        </Suspense>
 
         <form onSubmit={logIn} className="card card-body grid gap-4">
           <div>

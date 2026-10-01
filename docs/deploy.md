@@ -4,7 +4,7 @@ Free tiers are enough to start. You do the account steps; nothing here needs a c
 
 ## Before you deploy: checklist
 - [ ] `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` all pass (CI does this).
-- [ ] `supabase/schema.sql` has been run in your Supabase project.
+- [ ] `supabase/schema.sql` has been run in your Supabase project. It includes the `delete_my_account` function that powers **Settings → Delete my account**.
 - [ ] You **rotated any key you ever pasted into a chat or an email** (Supabase → Project Settings → API Keys).
 - [ ] `.env.local` is not committed (it is git-ignored).
 
@@ -55,6 +55,12 @@ Installing needs the **HTTPS** address, so do this after deploying.
 Notes:
 - The service worker (`public/sw.js`) only shows `public/offline.html` when a page cannot load. It never stores your data. If you edit `offline.html`, bump the cache number at the top of `sw.js`.
 - Desktop reminders come from the Chrome extension. Phone **push** reminders would need a push server and are not built yet.
+
+## Privacy and users' data
+- Users can export their data and delete their account themselves in **Settings → Your data**.
+- Deleting an account removes everything: all tables cascade from the user. Revoking Google Calendar access is attempted first.
+- Add a privacy policy before inviting the public. It should say what is stored (tasks, commitments, messages, meetings, an encrypted AI key), that AI requests go to the provider the user chose with their own key, and that voice input uses the browser's speech service.
+- Backups you keep of the database will still contain deleted users until they expire, so mention your retention period.
 
 ## Operating it
 - **Backups:** Supabase's free tier has no automatic backups you control. Export important data periodically, or upgrade for point-in-time recovery.

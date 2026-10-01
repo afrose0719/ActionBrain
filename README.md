@@ -13,6 +13,7 @@
 | **Meetings** | Paste or upload a transcript (`.txt`, `.vtt`, `.srt`). Get a summary, decisions, your action items and commitments. Optionally pick the meeting from Google Calendar. |
 | **Reminders** | The Chrome extension shows desktop notifications for due and overdue tasks and commitments, and "time to chase" nudges. The dashboard lists everything waiting for your review. |
 | **Install as an app** | Add ActionBrain to your phone or desktop (a PWA). On Android, **Share → ActionBrain** from WhatsApp, Gmail or any app sends the text to your Inbox. Shows a friendly offline page without a connection. |
+| **Your data** | Export everything as JSON (or tasks as CSV), and permanently delete your account and all data from Settings. |
 | **Search** | Ask questions across your tasks, commitments and messages. Answers cite their sources. |
 
 **Bring your own AI key.** Each user adds their own Anthropic, OpenAI or Gemini key in Settings. It is stored encrypted and never shown again, so the app owner never pays for anyone's AI use.
@@ -54,6 +55,7 @@ See `extension/README.md`. Load the `extension` folder at `chrome://extensions` 
 - **AI keys** are encrypted with AES-256-GCM before storage and are only decrypted server-side to make that user's own request.
 - **Google Calendar** uses the read-only scope; only an encrypted refresh token is stored, never your events.
 - **Prompt injection:** emails, chats and transcripts are treated as untrusted data in every prompt, and their output goes through the same validation and approval.
+- **Data ownership:** exports read every row (not just the first 1,000), never include AI keys or Google tokens, and neutralise spreadsheet formulas in CSV. Account deletion runs through one locked-down database function (`delete_my_account`) that can only delete the caller's own account, so no admin key is ever needed.
 - **Browser hardening:** a Content Security Policy, `X-Frame-Options`, `nosniff`, a strict referrer policy and HSTS (production). See `next.config.ts` for the trade-offs.
 
 ## Docs
