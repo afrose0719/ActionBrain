@@ -2,20 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, Check, Pencil, Sparkles, X } from "lucide-react";
+import { Archive, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
 import type { RawCommitment } from "@/lib/ai/actions";
-import type { InboxItem, Priority, Suggestion } from "@/lib/types";
+import { SuggestionList } from "@/components/suggestion-list";
+import type { InboxItem, Suggestion } from "@/lib/types";
 
 const SOURCES = ["email", "whatsapp", "meeting", "browser", "call", "note"];
-
-function toInputValue(iso: string | null) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-}
 
 export default function InboxPage() {
   const [items, setItems] = useState<InboxItem[]>([]);
@@ -30,9 +24,6 @@ export default function InboxPage() {
   const [sourceType, setSourceType] = useState("email");
   const [sourceRef, setSourceRef] = useState("");
   const [adding, setAdding] = useState(false);
-
-  // inline edit of one suggestion
-  const [editing, setEditing] = useState<{ itemId: string; draft: Suggestion } | null>(null);
 
   const load = useCallback(async () => {
     const { data, error } = await createClient()
@@ -165,17 +156,6 @@ export default function InboxPage() {
     else load();
   }
 
-  async function applyEdit() {
-    if (!editing) return;
-    const item = items.find((i) => i.id === editing.itemId);
-    if (!item || !editing.draft.title.trim()) return;
-    await saveSuggestions(
-      item,
-      item.ai_suggestions.map((x) => (x.id === editing.draft.id ? { ...editing.draft, title: editing.draft.title.trim() } : x))
-    );
-    setEditing(null);
-  }
-
   return (
     <>
       <div className="page-header">
@@ -288,97 +268,13 @@ export default function InboxPage() {
                       <p className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-muted">
                         {pending > 0 ? `AI detected ${pending} possible task${pending > 1 ? "s" : ""}` : "All suggestions reviewed"}
                       </p>
-                      <ul className="grid gap-3">
-                        {item.ai_suggestions.map((s) => {
-                          const isEditing = editing?.draft.id === s.id;
-                          return (
-                            <li key={s.id} className="rounded-md border border-line bg-canvas p-3">
-                              {isEditing && editing ? (
-                                <div className="grid gap-3">
-                                  <input
-                                    className="input"
-                                    value={editing.draft.title}
-                                    onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, title: e.target.value } })}
-                                  />
-                                  <div className="grid gap-3 sm:grid-cols-2">
-                                    <select
-                                      className="input"
-                                      value={editing.draft.priority}
-                                      onChange={(e) =>
-                                        setEditing({ ...editing, draft: { ...editing.draft, priority: e.target.value as Priority } })
-                                      }
-                                    >
-                                      <option value="low">Low</option>
-                                      <option value="medium">Medium</option>
-                                      <option value="high">High</option>
-                                    </select>
-                                    <input
-                                      type="datetime-local"
-                                      className="input"
-                                      value={toInputValue(editing.draft.due_date)}
-                                      onChange={(e) =>
-                                        setEditing({
-                                          ...editing,
-                                          draft: {
-                                            ...editing.draft,
-                                            due_date: e.target.value ? new Date(e.target.value).toISOString() : null,
-                                          },
-                                        })
-                                      }
-                                    />
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <button className="btn-primary btn-sm" onClick={applyEdit}>
-                                      Save
-                                    </button>
-                                    <button className="btn-secondary btn-sm" onClick={() => setEditing(null)}>
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <p className={`font-medium ${s.state !== "pending" ? "text-ink-subtle" : ""}`}>{s.title}</p>
-                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                                      <span className={`badge-${s.priority}`}>{s.priority}</span>
-                                      {s.due_date && (
-                                        <span className="text-ink-muted">Due {new Date(s.due_date).toLocaleString()}</span>
-                                      )}
-                                      {s.related_person && <span className="text-ink-muted">{s.related_person}</span>}
-                                      <span className="text-ink-subtle">{Math.round(s.confidence * 100)}% confident</span>
-                                    </div>
-                                    {s.quote && <p className="mt-2 border-l-2 border-line pl-3 text-xs text-ink-muted">{s.quote}</p>}
-                                  </div>
-                                  {s.state === "pending" ? (
-                                    <div className="flex shrink-0 gap-1">
-                                      <button className="btn-primary btn-sm" disabled={busyId === s.id} onClick={() => createTask(item, s)}>
-                                        <Check size={14} />
-                                        Create task
-                                      </button>
-                                      <button
-                                        className="btn-ghost btn-sm"
-                                        onClick={() => setEditing({ itemId: item.id, draft: s })}
-                                        aria-label="Edit suggestion"
-                                      >
-                                        <Pencil size={14} />
-                                      </button>
-                                      <button className="btn-ghost btn-sm" onClick={() => dismiss(item, s)} aria-label="Ignore suggestion">
-                                        <X size={14} />
-                                        Ignore
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span className={s.state === "created" ? "badge-brand" : "badge-low"}>
-                                      {s.state === "created" ? "Task created" : "Ignored"}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <SuggestionList
+                        suggestions={item.ai_suggestions}
+                        busyId={busyId}
+                        onCreate={(s) => createTask(item, s)}
+                        onDismiss={(s) => dismiss(item, s)}
+                        onEdit={(s) => saveSuggestions(item, item.ai_suggestions.map((x) => (x.id === s.id ? s : x)))}
+                      />
                     </>
                   )}
                 </div>

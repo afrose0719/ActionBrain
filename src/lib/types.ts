@@ -63,3 +63,18 @@ export type Commitment = {
   completed_at: string | null;
   created_at: string;
 };
+
+export type MeetingStatus = "new" | "analyzed";
+
+export type Meeting = {
+  id: string;
+  title: string;
+  meeting_date: string;
+  attendees: string | null;
+  transcript: string;
+  status: MeetingStatus;
+  summary: string | null;
+  decisions: string[];
+  ai_suggestions: Suggestion[];
+  created_at: string;
+};

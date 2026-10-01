@@ -160,3 +160,17 @@ export function validateCommitments(raw: unknown): RawCommitment[] {
   }
   return out;
 }
+
+/** Checks the AI's meeting summary and decision list. */
+export function validateMeetingExtras(raw: unknown): { summary: string; decisions: string[] } {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const summary = typeof r.summary === "string" ? r.summary.trim().slice(0, 1500) : "";
+  const decisions = Array.isArray(r.decisions)
+    ? r.decisions
+        .map((d) => (typeof d === "string" ? d : d && typeof d === "object" ? (d as Record<string, unknown>).text : null))
+        .filter((d): d is string => typeof d === "string" && d.trim().length > 0)
+        .map((d) => d.trim().slice(0, 300))
+        .slice(0, 15)
+    : [];
+  return { summary, decisions };
+}

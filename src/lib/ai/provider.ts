@@ -15,7 +15,12 @@ export function isProvider(v: unknown): v is ProviderId {
 export type AiConfig = { provider: ProviderId; model?: string | null; apiKey: string };
 
 /** Sends a prompt and returns the model's text reply. */
-export async function askModel(config: AiConfig, system: string, user: string): Promise<string> {
+export async function askModel(
+  config: AiConfig,
+  system: string,
+  user: string,
+  options: { maxTokens?: number } = {}
+): Promise<string> {
   const { provider, apiKey } = config;
   const model = config.model || PROVIDERS[provider].defaultModel;
 
@@ -23,7 +28,7 @@ export async function askModel(config: AiConfig, system: string, user: string): 
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model, max_tokens: 800, system, messages: [{ role: "user", content: user }] }),
+      body: JSON.stringify({ model, max_tokens: options.maxTokens ?? 800, system, messages: [{ role: "user", content: user }] }),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body?.error?.message ?? `Anthropic error ${res.status}`);
