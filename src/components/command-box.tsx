@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, Sparkles, X } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { MicButton } from "@/components/mic-button";
+import { useSpeech } from "@/lib/use-speech";
 import type { Action, TaskChanges } from "@/lib/ai/actions";
 import type { Task } from "@/lib/types";
 
@@ -31,9 +33,14 @@ export function CommandBox({ tasks, onDone }: { tasks: Task[]; onDone: () => voi
 
   const taskTitle = (id: string) => tasks.find((t) => t.id === id)?.title ?? "(unknown task)";
 
-  async function run(e: React.FormEvent) {
-    e.preventDefault();
-    if (!command.trim()) return;
+  const speech = useSpeech((text) => {
+    setCommand(text);
+    submit(text); // the confirmation step below still applies
+  });
+
+  // Typed and spoken commands both end up here, so voice uses exactly the same engine and safety checks.
+  async function submit(text: string) {
+    if (!text.trim()) return;
     setBusy(true);
     setError("");
     setNeedsKey(false);
@@ -45,7 +52,7 @@ export function CommandBox({ tasks, onDone }: { tasks: Task[]; onDone: () => voi
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${session.session?.access_token}` },
       body: JSON.stringify({
-        command,
+        command: text,
         tasks: tasks.map(({ id, title, status, priority, due_date }) => ({ id, title, status, priority, due_date })),
         now: new Date().toString(),
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -88,21 +95,31 @@ export function CommandBox({ tasks, onDone }: { tasks: Task[]; onDone: () => voi
 
   return (
     <div className="card card-body mb-6">
-      <form onSubmit={run} className="flex gap-2">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit(command);
+        }}
+        className="flex gap-2"
+      >
         <div className="relative flex-1">
           <Sparkles size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-600" />
           <input
             className="input pl-9"
             placeholder='Ask AI: "Remind me to send the RCA tomorrow at 10 AM" or "Move the RCA task to Friday"'
-            value={command}
+            value={speech.listening ? speech.interim || "Listening..." : command}
+            readOnly={speech.listening}
             onChange={(e) => setCommand(e.target.value)}
             maxLength={500}
           />
         </div>
-        <button className="btn-primary" disabled={busy || !command.trim()}>
+        <MicButton supported={speech.supported} listening={speech.listening} onStart={speech.start} onStop={speech.stop} />
+        <button className="btn-primary" disabled={busy || !command.trim() || speech.listening}>
           {busy && !action ? "Thinking..." : "Run"}
         </button>
       </form>
+
+      {!error && speech.error && <p className="alert-error mt-3">{speech.error}</p>}
 
       {error && (
         <p className="alert-error mt-3">

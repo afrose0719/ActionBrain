@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, CheckSquare, Handshake, Inbox, Search, Sparkles } from "lucide-react";
 import { authFetch } from "@/lib/api";
+import { MicButton } from "@/components/mic-button";
+import { useSpeech } from "@/lib/use-speech";
 
 type Source = {
   id: string;
@@ -37,6 +39,11 @@ export default function SearchPage() {
   const [needsKey, setNeedsKey] = useState(false);
   const [answer, setAnswer] = useState("");
   const [sources, setSources] = useState<Source[]>([]);
+
+  const speech = useSpeech((text) => {
+    setQuestion(text);
+    run(text);
+  });
 
   async function run(q: string) {
     if (!q.trim()) return;
@@ -87,13 +94,15 @@ export default function SearchPage() {
             <input
               className="input pl-9"
               placeholder="e.g. What do I need to do regarding WATI?"
-              value={question}
+              value={speech.listening ? speech.interim || "Listening..." : question}
+              readOnly={speech.listening}
               maxLength={300}
               onChange={(e) => setQuestion(e.target.value)}
               autoFocus
             />
           </div>
-          <button className="btn-primary" disabled={busy || !question.trim()}>
+          <MicButton supported={speech.supported} listening={speech.listening} onStart={speech.start} onStop={speech.stop} />
+          <button className="btn-primary" disabled={busy || !question.trim() || speech.listening}>
             <Sparkles size={16} />
             {busy ? "Searching..." : "Ask"}
           </button>
@@ -115,6 +124,8 @@ export default function SearchPage() {
           ))}
         </div>
       </form>
+
+      {!error && speech.error && <p className="alert-error mt-6">{speech.error}</p>}
 
       {error && (
         <p className="alert-error mt-6">
