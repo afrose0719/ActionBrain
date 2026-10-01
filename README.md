@@ -12,6 +12,7 @@
 | **Waiting For** | Everything others owe you, grouped by person, with an AI briefing ("who should I chase today?"). |
 | **Meetings** | Paste or upload a transcript (`.txt`, `.vtt`, `.srt`). Get a summary, decisions, your action items and commitments. Optionally pick the meeting from Google Calendar. |
 | **Reminders** | The Chrome extension shows desktop notifications for due and overdue tasks and commitments, and "time to chase" nudges. The dashboard lists everything waiting for your review. |
+| **Install as an app** | Add ActionBrain to your phone or desktop (a PWA). On Android, **Share → ActionBrain** from WhatsApp, Gmail or any app sends the text to your Inbox. Shows a friendly offline page without a connection. |
 | **Search** | Ask questions across your tasks, commitments and messages. Answers cite their sources. |
 
 **Bring your own AI key.** Each user adds their own Anthropic, OpenAI or Gemini key in Settings. It is stored encrypted and never shown again, so the app owner never pays for anyone's AI use.
@@ -42,7 +43,7 @@ Next.js (App Router) · TypeScript · Tailwind CSS v4 · Supabase (Postgres, Aut
 | `npm run typecheck` | TypeScript |
 | `npm test` | Unit tests for the validators, encryption, parsers and Google logic |
 
-CI (`.github/workflows/ci.yml`) runs lint, typecheck, tests and build on every push.
+CI (`.github/workflows/ci.yml`) runs lint, typecheck, tests and build on every push. `npm run typecheck` generates Next.js route types first, so it also works on a fresh clone.
 
 ## Chrome extension
 See `extension/README.md`. Load the `extension` folder at `chrome://extensions` (Developer mode → Load unpacked).

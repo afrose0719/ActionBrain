@@ -46,6 +46,16 @@ Supabase's built-in email sender is for testing and allows only a few emails per
 4. Inbox → add a message → Analyze → create a task.
 5. Open the site's developer console: there should be **no Content-Security-Policy errors**. If you add a new third-party service (analytics, a CDN), add its domain to `connect-src` / `script-src` in `next.config.ts`.
 
+## 6b. Install it on your phone
+Installing needs the **HTTPS** address, so do this after deploying.
+- **Android (Chrome):** open the site → menu → **Install app**. Afterwards, **Share → ActionBrain** in WhatsApp, Gmail or any app drops the text into your Inbox form.
+- **iPhone / iPad (Safari):** **Share → Add to Home Screen**. (iOS does not support the Share-to-app feature.)
+- **Desktop (Chrome/Edge):** click the install icon in the address bar, or Settings → Install the app.
+
+Notes:
+- The service worker (`public/sw.js`) only shows `public/offline.html` when a page cannot load. It never stores your data. If you edit `offline.html`, bump the cache number at the top of `sw.js`.
+- Desktop reminders come from the Chrome extension. Phone **push** reminders would need a push server and are not built yet.
+
 ## Operating it
 - **Backups:** Supabase's free tier has no automatic backups you control. Export important data periodically, or upgrade for point-in-time recovery.
 - **Updates:** push to `main`; Vercel redeploys automatically and CI runs first.
