@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ActionBrain
 
-## Getting Started
+**Never lose a commitment again.** ActionBrain is an AI work memory. It captures what you say, receive and promise, finds the commitments and action items in it, and turns them into tasks you approve.
 
-First, run the development server:
+## What it does
+| Area | What you can do |
+|---|---|
+| **Tasks** | Create, edit, complete, delete, search. Priority, due date, source and "why does this exist?" provenance. |
+| **AI command box** | "Remind me to send the RCA tomorrow at 10", "Move the RCA task to Friday". Validated, then confirmed by you. Works by voice too. |
+| **Inbox** | Paste a message, import a WhatsApp chat export or `.eml` email, or send selected text from any web page (Chrome extension). AI suggests tasks and commitments. Nothing is created without your approval. |
+| **Commitments** | What you promised and what others promised you, with a review queue and at-risk warnings. |
+| **Waiting For** | Everything others owe you, grouped by person, with an AI briefing ("who should I chase today?"). |
+| **Meetings** | Paste or upload a transcript (`.txt`, `.vtt`, `.srt`). Get a summary, decisions, your action items and commitments. Optionally pick the meeting from Google Calendar. |
+| **Search** | Ask questions across your tasks, commitments and messages. Answers cite their sources. |
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+**Bring your own AI key.** Each user adds their own Anthropic, OpenAI or Gemini key in Settings. It is stored encrypted and never shown again, so the app owner never pays for anyone's AI use.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Tech
+Next.js (App Router) · TypeScript · Tailwind CSS v4 · Supabase (Postgres, Auth, Row Level Security) · Chrome extension (Manifest V3).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Run it locally
+1. `npm install`
+2. Create a free Supabase project. In the SQL Editor, run `supabase/schema.sql` (it contains every table).
+3. Copy `.env.example` to `.env.local` and fill it in (table below).
+4. `npm run dev` and open http://localhost:3000.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Environment variables
+| Variable | Required | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase → Project Settings → API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | The **publishable** key. Never the secret / service_role key. |
+| `AI_KEY_ENCRYPTION_KEY` | yes | 32 random bytes, base64. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. Losing it means users must re-enter their AI keys. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | optional | Google Calendar. See `docs/google-calendar-setup.md`. |
 
-## Learn More
+## Scripts
+| Command | Does |
+|---|---|
+| `npm run dev` | Dev server |
+| `npm run build` / `npm start` | Production build and server |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript |
+| `npm test` | Unit tests for the validators, encryption, parsers and Google logic |
 
-To learn more about Next.js, take a look at the following resources:
+CI (`.github/workflows/ci.yml`) runs lint, typecheck, tests and build on every push.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Chrome extension
+See `extension/README.md`. Load the `extension` folder at `chrome://extensions` (Developer mode → Load unpacked).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Security model
+- **Row Level Security** on every table: a user can only read and write their own rows. The app uses only the public key. No service-role key is needed anywhere.
+- **The AI never writes to the database.** Its output is validated against a strict allow-list (no invented ids, no `user_id`/`status` changes), shown as a preview, and applied only after you click Confirm.
+- **AI keys** are encrypted with AES-256-GCM before storage and are only decrypted server-side to make that user's own request.
+- **Google Calendar** uses the read-only scope; only an encrypted refresh token is stored, never your events.
+- **Prompt injection:** emails, chats and transcripts are treated as untrusted data in every prompt, and their output goes through the same validation and approval.
+- **Browser hardening:** a Content Security Policy, `X-Frame-Options`, `nosniff`, a strict referrer policy and HSTS (production). See `next.config.ts` for the trade-offs.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Docs
+- `docs/deploy.md`: deploying to Vercel, step by step
+- `docs/google-calendar-setup.md`: Google Calendar setup
+- `docs/integrations.md`: research on Gmail, WhatsApp, Calendar and Microsoft, with sources
+- `supabase/`: SQL for each milestone
