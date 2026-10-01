@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { CommandBox } from "@/components/command-box";
 import type { Priority, Task } from "@/lib/types";
 
 const SOURCES = ["manual", "email", "meeting", "whatsapp", "browser", "call"];
@@ -156,6 +157,8 @@ export default function TasksPage() {
           </button>
         )}
       </div>
+
+      <CommandBox tasks={tasks} onDone={load} />
 
       {showForm && (
         <form onSubmit={save} className="card card-body mb-6 grid gap-4">
