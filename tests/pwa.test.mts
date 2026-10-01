@@ -52,11 +52,19 @@ test("every shortcut points to a real page", () => {
   for (const s of m.shortcuts!) assert.ok(pageExists(s.url), `shortcut ${s.url} has no page`);
 });
 
-test("share target points to the Inbox and reads title/text/url", () => {
+test("share target is a POST that carries text AND audio files, and has a server fallback", () => {
   const t = m.share_target!;
-  assert.ok(pageExists(t.action));
-  assert.equal(String(t.method).toUpperCase(), "GET");
-  assert.deepEqual(t.params, { title: "title", text: "text", url: "url" });
+  assert.equal(t.action, "/share-target");
+  assert.equal(String(t.method).toUpperCase(), "POST"); // files cannot travel in a web address
+  assert.equal(t.enctype, "multipart/form-data");
+  assert.equal(t.params.title, "title");
+  assert.equal(t.params.text, "text");
+  assert.equal(t.params.url, "url");
+  const files = [t.params.files].flat();
+  assert.equal(files.length, 1);
+  assert.equal(files[0]!.name, "audio"); // the service worker reads the field called "audio"
+  assert.ok([files[0]!.accept].flat().includes("audio/*"));
+  assert.ok(existsSync("src/app/share-target/route.ts"), "the fallback for when the service worker is not active");
 });
 
 // ---------------- service worker: run the real file against a fake browser ----------------
@@ -142,10 +150,12 @@ test("sw: activating removes every old cache version and keeps only the current 
   assert.equal(sw.state().claimed, true);
 });
 
-test("sw: the file itself never caches anything but the offline page", () => {
+test("sw: it writes to storage in exactly two places: the offline page, and a shared recording", () => {
   const src = readFileSync("public/sw.js", "utf8");
-  assert.equal((src.match(/\.add\(/g) ?? []).length, 1);
-  assert.ok(!/\.put\(|addAll\(/.test(src));
+  assert.equal((src.match(/\.add\(/g) ?? []).length, 1); // the offline page
+  assert.equal((src.match(/\.put\(/g) ?? []).length, 1); // a recording shared by the user
+  assert.ok(!/addAll\(/.test(src));
+  assert.ok(!/cache\.put\(\s*(event\.)?request/.test(src), "must never store a fetched page or API response");
 });
 
 // ---------------- redirect and share helpers ----------------

@@ -46,6 +46,9 @@ The engine (25.6 MB) is copied from `node_modules` into `public/ort` by `scripts
 - **Cached security headers.** Static files are cached for a year as "immutable", *including their headers*. If you change the worker policy in `next.config.ts` and the worker file's content does not change, browsers that already have it keep the **old** policy. Symptom: the engine fails to load with a CSP error after you "fixed" the policy. Fix when testing: `fetch(url, { cache: "reload" })` for the affected files, or clear site data. Brand-new visitors are unaffected.
 - **`next typegen` and `LayoutProps`** are unrelated, but `npm install` now pulls `onnxruntime-node` (about 290 MB in `node_modules`) because the speech library lists it. It is never used in the browser; it only slows installs.
 
+## Recordings from a file
+Besides live recording, **Meetings → Record a call → "Use a call recording from my phone"** reads an audio file (M4A, MP3, AAC, WAV...) and transcribes it with the same engine. An Android recording shared with **Share → ActionBrain** arrives the same way. See `docs/android-call-recordings.md`. Files are decoded on the device (`src/lib/decode-audio.ts`) at 16 kHz mono; the limit is 90 minutes and 300 MB.
+
 ## What was tested, and what was not
 **Tested in a real Chrome, on the production build, with the real policies:**
 - The microphone path with a **synthetic voice** (Windows text-to-speech) played through a real audio stream into the real worklet, resampler and Whisper worker: 9 seconds of speech was captured at the right length and loudness, and transcribed correctly except that "Afrose" was heard as "Afros" (Tiny model).

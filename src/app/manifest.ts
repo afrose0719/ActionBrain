@@ -25,11 +25,20 @@ export default function manifest(): MetadataRoute.Manifest {
       { name: "Inbox", url: "/inbox", icons: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }] },
       { name: "Search", url: "/search", icons: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }] },
     ],
-    // Android: "Share" from WhatsApp, Gmail, a browser... and pick ActionBrain. The text lands in the Inbox form.
+    // Android: "Share" from WhatsApp, Gmail, or a call recorder, and pick ActionBrain.
+    //  - text goes to the Inbox form
+    //  - a call recording (audio file) goes to Meetings, to be transcribed on the device
+    // It is a POST because files cannot travel in a web address. public/sw.js receives it (src/app/share-target/route.ts is the fallback).
     share_target: {
-      action: "/inbox",
-      method: "GET",
-      params: { title: "title", text: "text", url: "url" },
+      action: "/share-target",
+      method: "POST",
+      enctype: "multipart/form-data",
+      params: {
+        title: "title",
+        text: "text",
+        url: "url",
+        files: [{ name: "audio", accept: ["audio/*", ".m4a", ".mp3", ".aac", ".wav", ".ogg", ".opus", ".amr", ".3gp", ".3gpp", ".mp4"] }],
+      },
     },
   };
 }

@@ -60,12 +60,12 @@ Supabase's built-in email sender is for testing and allows only a few emails per
 
 ## 6b. Install it on your phone
 Installing needs the **HTTPS** address, so do this after deploying.
-- **Android (Chrome):** open the site → menu → **Install app**. Afterwards, **Share → ActionBrain** in WhatsApp, Gmail or any app drops the text into your Inbox form.
+- **Android (Chrome):** open the site → menu → **Install app**. Afterwards, **Share → ActionBrain** in WhatsApp, Gmail or any app drops the text into your Inbox form, and sharing a **call recording** opens it in Meetings for private on-device transcription (`docs/android-call-recordings.md`).
 - **iPhone / iPad (Safari):** **Share → Add to Home Screen**. (iOS does not support the Share-to-app feature.)
 - **Desktop (Chrome/Edge):** click the install icon in the address bar, or Settings → Install the app.
 
 Notes:
-- The service worker (`public/sw.js`) only shows `public/offline.html` when a page cannot load. It never stores your data. If you edit `offline.html`, bump the cache number at the top of `sw.js`.
+- The service worker (`public/sw.js`) shows `public/offline.html` when a page cannot load, and receives things shared from the Android share sheet. A shared recording is held briefly in the browser's own storage until the page picks it up (or for at most a day), and is never sent to a server. If you edit `offline.html`, bump the cache number at the top of `sw.js`.
 - Desktop reminders come from the Chrome extension. Phone **push** reminders would need a push server and are not built yet.
 
 ## Privacy and users' data

@@ -9,6 +9,7 @@ import { cleanTranscript } from "@/lib/transcript";
 import { SuggestionList } from "@/components/suggestion-list";
 import { CallRecorder, type RecordingResult } from "@/components/call-recorder";
 import { formatDuration } from "@/lib/audio";
+import { isSharedId, takeSharedFile } from "@/lib/shared-files";
 import type { RawCommitment } from "@/lib/ai/actions";
 import type { CalendarEvent } from "@/lib/google";
 import type { Meeting, Suggestion } from "@/lib/types";
@@ -30,6 +31,7 @@ export default function MeetingsPage() {
   // form
   const [showForm, setShowForm] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
+  const [sharedFile, setSharedFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(nowForInput);
   const [attendees, setAttendees] = useState("");
@@ -54,6 +56,22 @@ export default function MeetingsPage() {
       await load();
     })();
   }, [load]);
+
+  // A call recording shared from the Android share sheet arrives as /meetings?shared=<id>. Pick it up once and open the recorder with it.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("shared");
+    if (!isSharedId(id)) return;
+    window.history.replaceState(null, "", "/meetings"); // so a refresh does not look for it again
+    (async () => {
+      const received = await takeSharedFile(id).catch(() => null);
+      if (received) {
+        setSharedFile(received);
+        setShowRecorder(true);
+      } else {
+        setError("That shared recording is no longer available. Share it to ActionBrain again.");
+      }
+    })();
+  }, []);
 
   async function openCalendar() {
     setShowEvents(true);
@@ -253,7 +271,16 @@ export default function MeetingsPage() {
         )}
       </div>
 
-      {showRecorder && <CallRecorder onTranscript={saveRecording} onClose={() => setShowRecorder(false)} />}
+      {showRecorder && (
+        <CallRecorder
+          initialFile={sharedFile}
+          onTranscript={saveRecording}
+          onClose={() => {
+            setShowRecorder(false);
+            setSharedFile(null);
+          }}
+        />
+      )}
 
       {showForm && (
         <form onSubmit={addMeeting} className="card card-body mb-6 grid gap-4">
