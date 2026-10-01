@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="popup.css" />
+    <title>ActionBrain</title>
+  </head>
+  <body>
+    <header>
+      <span class="logo">A</span>
+      <strong>ActionBrain</strong>
+    </header>
+
+    <!-- Shown when logged out -->
+    <form id="login" hidden>
+      <p class="muted">Log in with your ActionBrain account.</p>
+      <label>Email <input id="email" type="email" autocomplete="username" required /></label>
+      <label>Password <input id="password" type="password" autocomplete="current-password" required /></label>
+      <button class="primary" type="submit">Log in</button>
+    </form>
+
+    <!-- Shown when logged in -->
+    <section id="main" hidden>
+      <p class="muted">Signed in as <strong id="who"></strong></p>
+      <p class="tip">Tip: select text on any page, right-click, and choose <em>Send to ActionBrain</em>.</p>
+
+      <label>Quick capture
+        <textarea id="text" rows="4" maxlength="6000" placeholder="Paste a message here..."></textarea>
+      </label>
+      <button id="send" class="primary">Send to Inbox</button>
+
+      <div class="row">
+        <a id="open" href="#" target="_blank">Open Inbox</a>
+        <button id="logout" class="link">Log out</button>
+      </div>
+    </section>
+
+    <p id="msg" role="status"></p>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
