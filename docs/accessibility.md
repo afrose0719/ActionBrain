@@ -15,7 +15,7 @@ Colors live in one place (`@theme` in `src/app/globals.css`). If you change one,
 - **Landmarks:** one `<main>`, a labelled `<nav>`, a banner; `aria-current="page"` marks the current page.
 - **Distinct page titles** ("Tasks · ActionBrain", ...), so tabs, history and screen readers can tell pages apart.
 - **Announcements:** error messages use `role="alert"`; success messages use `role="status"`.
-- **Visible keyboard focus** on every control; no focus traps.
+- **Visible keyboard focus** on every control (one global rule). The app has no custom pop-up dialogs, so there is nothing to trap focus; confirmations use the browser's own dialogs.
 - **Reduced motion:** animations and smooth scrolling are turned off when the operating system asks.
 - **Every field has a real `<label>`**; icon-only buttons have `aria-label`s.
 - **No autofocus** (it disorients screen-reader users).
