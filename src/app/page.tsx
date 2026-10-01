@@ -1,14 +1,19 @@
+import Link from "next/link";
+import { Brain } from "lucide-react";
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-      <h1 className="text-5xl font-bold tracking-tight">ActionBrain</h1>
-      <p className="text-xl text-gray-500">Never lose a commitment again.</p>
-      <p className="rounded-full bg-green-100 px-4 py-1 text-sm text-green-800">
-        Milestone 1 works ✅
-      </p>
-      <a href="/login" className="rounded bg-black px-5 py-2 text-white">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600 text-white">
+        <Brain size={24} />
+      </span>
+      <div>
+        <h1 className="text-2xl">ActionBrain</h1>
+        <p className="page-subtitle">Never lose a commitment again.</p>
+      </div>
+      <Link href="/login" className="btn-primary">
         Log in / Sign up
-      </a>
+      </Link>
     </main>
   );
 }

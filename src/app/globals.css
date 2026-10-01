@@ -1,26 +1,150 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * ActionBrain design system — the single source of truth for look and feel.
+ * Change a token here and the whole app updates.
+ */
+
+@theme {
+  /* Typography: one family, a fixed scale */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 2rem;
+  --text-2xl: 1.875rem;
+  --text-2xl--line-height: 2.25rem;
+
+  /* Brand */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+
+  /* Surfaces and text */
+  --color-canvas: #f8fafc;
+  --color-surface: #ffffff;
+  --color-line: #e2e8f0;
+  --color-ink: #0f172a;
+  --color-ink-muted: #64748b;
+  --color-ink-subtle: #94a3b8;
+
+  /* Status */
+  --color-danger-50: #fef2f2;
+  --color-danger-600: #dc2626;
+  --color-warning-50: #fffbeb;
+  --color-warning-600: #d97706;
+  --color-success-50: #f0fdf4;
+  --color-success-600: #16a34a;
+
+  /* Shape */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06), 0 1px 3px rgb(15 23 42 / 0.04);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@utility btn {
+  @apply inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@utility badge {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  h1 {
+    font-size: var(--text-xl);
+    line-height: var(--text-xl--line-height);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    font-weight: 600;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Cards */
+  .card {
+    @apply rounded-lg border border-line bg-surface shadow-card;
+  }
+  .card-body {
+    @apply p-5;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700;
+  }
+  .btn-secondary {
+    @apply btn border border-line bg-surface text-ink hover:bg-canvas;
+  }
+  .btn-danger {
+    @apply btn text-danger-600 hover:bg-danger-50;
+  }
+  .btn-ghost {
+    @apply btn text-ink-muted hover:bg-canvas hover:text-ink;
+  }
+  .btn-sm {
+    @apply h-8 px-3 text-xs;
+  }
+
+  /* Form controls */
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-ink-muted;
+  }
+  .input {
+    @apply h-9 w-full rounded-md border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-subtle;
+  }
+  textarea.input {
+    @apply h-auto py-2;
+  }
+
+  /* Badges */
+  .badge-high {
+    @apply badge bg-danger-50 text-danger-600;
+  }
+  .badge-medium {
+    @apply badge bg-warning-50 text-warning-600;
+  }
+  .badge-low {
+    @apply badge bg-canvas text-ink-muted;
+  }
+  .badge-brand {
+    @apply badge bg-brand-50 text-brand-700;
+  }
+
+  /* Page structure */
+  .page-header {
+    @apply mb-6 flex items-start justify-between gap-4;
+  }
+  .page-subtitle {
+    @apply mt-1 text-sm text-ink-muted;
+  }
+  .alert-error {
+    @apply rounded-md border border-danger-600/20 bg-danger-50 px-3 py-2 text-sm text-danger-600;
+  }
 }

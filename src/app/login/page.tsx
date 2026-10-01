@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Brain } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
 
   function validate() {
     if (!email.trim() || password.length < 6) {
@@ -20,45 +22,69 @@ export default function LoginPage() {
 
   async function signUp() {
     if (!validate()) return;
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+    setBusy(true);
+    const { data, error } = await createClient().auth.signUp({ email: email.trim(), password });
+    setBusy(false);
     if (error) return setMessage(error.message);
     if (data.session) return router.push("/dashboard");
     setMessage("Account created. Check your email to confirm, then log in.");
   }
 
-  async function logIn() {
+  async function logIn(e: React.FormEvent) {
+    e.preventDefault();
     if (!validate()) return;
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setBusy(true);
+    const { error } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
+    setBusy(false);
     if (error) return setMessage(error.message);
     router.push("/dashboard");
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-3 p-6">
-      <h1 className="text-2xl font-bold">Log in to ActionBrain</h1>
-      <input
-        className="rounded border p-2"
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <input
-        className="rounded border p-2"
-        type="password"
-        placeholder="Password (min 6 characters)"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <button className="rounded bg-black p-2 text-white" onClick={logIn}>
-        Log in
-      </button>
-      <button className="rounded border p-2" onClick={signUp}>
-        Sign up
-      </button>
-      {message && <p className="text-sm text-red-600">{message}</p>}
+    <main className="flex min-h-screen items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-brand-600 text-white">
+            <Brain size={20} />
+          </span>
+          <h1>Welcome to ActionBrain</h1>
+          <p className="page-subtitle">Log in or create an account to continue.</p>
+        </div>
+
+        <form onSubmit={logIn} className="card card-body grid gap-4">
+          <div>
+            <label className="label" htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              className="input"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              className="input"
+              placeholder="At least 6 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          {message && <p className="alert-error">{message}</p>}
+
+          <button className="btn-primary" disabled={busy}>
+            Log in
+          </button>
+          <button type="button" className="btn-secondary" disabled={busy} onClick={signUp}>
+            Create account
+          </button>
+        </form>
+      </div>
     </main>
   );
 }
