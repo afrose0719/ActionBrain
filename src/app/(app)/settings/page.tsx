@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, ShieldCheck, Trash2, User } from "lucide-react";
+import { CalendarDays, KeyRound, ShieldCheck, Trash2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { authFetch } from "@/lib/api";
 import { PROVIDERS, type ProviderId } from "@/lib/ai/provider";
 
 type Saved = { provider: ProviderId; model: string | null; key_hint: string | null } | null;
@@ -30,6 +31,11 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [nameNotice, setNameNotice] = useState("");
 
+  // Google Calendar
+  const [google, setGoogle] = useState<{ configured: boolean; connected: boolean; email: string | null } | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleError, setGoogleError] = useState("");
+
   const load = useCallback(async () => {
     const res = await fetch("/api/settings/ai", { headers: await authHeaders() });
     const body = await res.json().catch(() => ({}));
@@ -46,10 +52,35 @@ export default function SettingsPage() {
   useEffect(() => {
     (async () => {
       await load();
+      const res = await authFetch("/api/google/status");
+      if (res.ok) setGoogle(await res.json());
       const { data } = await createClient().auth.getUser();
       setName((data.user?.user_metadata?.full_name as string) ?? "");
     })();
   }, [load]);
+
+  async function connectGoogle() {
+    setGoogleBusy(true);
+    setGoogleError("");
+    const state = crypto.randomUUID();
+    sessionStorage.setItem("gcal_state", state); // checked again when Google sends the user back
+    const res = await authFetch(`/api/google/connect?state=${state}`);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setGoogleBusy(false);
+      return setGoogleError(body.error ?? "Could not start the connection.");
+    }
+    window.location.href = body.url;
+  }
+
+  async function disconnectGoogle() {
+    if (!confirm("Disconnect Google Calendar? ActionBrain will forget the access and ask Google to revoke it.")) return;
+    setGoogleBusy(true);
+    const res = await authFetch("/api/google/connect", { method: "DELETE" });
+    setGoogleBusy(false);
+    if (!res.ok) return setGoogleError("Could not disconnect.");
+    setGoogle((g) => (g ? { ...g, connected: false, email: null } : g));
+  }
 
   async function saveName(e: React.FormEvent) {
     e.preventDefault();
@@ -113,6 +144,43 @@ export default function SettingsPage() {
             <button className="btn-primary">Save name</button>
           </div>
         </form>
+      </section>
+
+      <section className="card mb-6">
+        <div className="flex items-center gap-2 border-b border-line px-5 py-4">
+          <CalendarDays size={16} className="text-brand-600" />
+          <h2>Google Calendar</h2>
+        </div>
+        <div className="card-body grid gap-4">
+          <p className="text-ink-muted">
+            Read-only. Lets you pick a meeting from your calendar when adding a transcript. ActionBrain can view your events but never change them.
+          </p>
+          {googleError && <p className="alert-error">{googleError}</p>}
+          {google && !google.configured ? (
+            <p className="rounded-md border border-line bg-canvas px-4 py-3 text-ink-muted">
+              Not set up on this server yet. Follow <code>docs/google-calendar-setup.md</code>, then restart the server.
+            </p>
+          ) : google?.connected ? (
+            <div className="flex items-center justify-between rounded-md border border-line bg-canvas px-4 py-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={16} className="text-success-600" />
+                <span>
+                  Connected{google.email ? <> as <strong>{google.email}</strong></> : null}
+                </span>
+              </div>
+              <button type="button" className="btn-danger btn-sm" onClick={disconnectGoogle} disabled={googleBusy}>
+                <Trash2 size={14} />
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <div>
+              <button type="button" className="btn-primary" onClick={connectGoogle} disabled={googleBusy || !google}>
+                {googleBusy ? "Redirecting..." : "Connect Google Calendar"}
+              </button>
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="card">

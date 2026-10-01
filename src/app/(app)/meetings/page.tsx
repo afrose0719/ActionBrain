@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, FileText, Plus, Sparkles, Trash2, Upload, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, FileText, Plus, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
 import { cleanTranscript } from "@/lib/transcript";
 import { SuggestionList } from "@/components/suggestion-list";
 import type { RawCommitment } from "@/lib/ai/actions";
+import type { CalendarEvent } from "@/lib/google";
 import type { Meeting, Suggestion } from "@/lib/types";
 
 function nowForInput() {
@@ -32,6 +33,12 @@ export default function MeetingsPage() {
   const [transcript, setTranscript] = useState("");
   const [adding, setAdding] = useState(false);
 
+  // calendar picker
+  const [events, setEvents] = useState<CalendarEvent[] | null>(null);
+  const [showEvents, setShowEvents] = useState(false);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsError, setEventsError] = useState("");
+
   const load = useCallback(async () => {
     const { data, error } = await createClient().from("meetings").select("*").order("meeting_date", { ascending: false });
     if (error) setError(error.message);
@@ -44,6 +51,27 @@ export default function MeetingsPage() {
       await load();
     })();
   }, [load]);
+
+  async function openCalendar() {
+    setShowEvents(true);
+    setEventsLoading(true);
+    setEventsError("");
+    const res = await authFetch("/api/google/events");
+    const body = await res.json().catch(() => ({}));
+    setEventsLoading(false);
+    if (!res.ok) return setEventsError(body.error ?? "Could not read your calendar.");
+    // newest first, so the meeting you just finished is on top
+    setEvents([...(body.events as CalendarEvent[])].sort((a, b) => b.start.localeCompare(a.start)));
+  }
+
+  function pickEvent(ev: CalendarEvent) {
+    setTitle(ev.title);
+    setAttendees(ev.attendees.join(", "));
+    const d = new Date(ev.start);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    setDate(d.toISOString().slice(0, 16));
+    setShowEvents(false);
+  }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -202,6 +230,44 @@ export default function MeetingsPage() {
             <button type="button" className="btn-ghost btn-sm" onClick={() => setShowForm(false)} aria-label="Close">
               <X size={16} />
             </button>
+          </div>
+          <div>
+            <button type="button" className="btn-secondary btn-sm" onClick={openCalendar}>
+              <CalendarDays size={14} />
+              Fill from Google Calendar
+            </button>
+            {showEvents && (
+              <div className="mt-3 rounded-md border border-line bg-canvas">
+                {eventsLoading ? (
+                  <p className="p-3 text-ink-muted">Loading your calendar...</p>
+                ) : eventsError ? (
+                  <p className="p-3 text-danger-600">
+                    {eventsError}{" "}
+                    <Link href="/settings" className="font-medium underline">
+                      Open Settings
+                    </Link>
+                  </p>
+                ) : events && events.length === 0 ? (
+                  <p className="p-3 text-ink-muted">No events in the last 7 or next 7 days.</p>
+                ) : (
+                  <ul className="max-h-60 divide-y divide-line overflow-auto">
+                    {events?.map((ev) => (
+                      <li key={ev.id}>
+                        <button type="button" className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-surface" onClick={() => pickEvent(ev)}>
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">{ev.title}</span>
+                            {ev.attendees.length > 0 && <span className="block truncate text-xs text-ink-muted">{ev.attendees.join(", ")}</span>}
+                          </span>
+                          <span className="shrink-0 text-xs text-ink-muted">
+                            {ev.allDay ? new Date(ev.start).toLocaleDateString() : new Date(ev.start).toLocaleString()}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="sm:col-span-2">
