@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Archive, Check, Pencil, Sparkles, X } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
+import type { RawCommitment } from "@/lib/ai/actions";
 import type { InboxItem, Priority, Suggestion } from "@/lib/types";
 
 const SOURCES = ["email", "whatsapp", "meeting", "browser", "call", "note"];
@@ -21,6 +22,7 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [needsKey, setNeedsKey] = useState(false);
+  const [notice, setNotice] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // add form
@@ -61,6 +63,7 @@ export default function InboxPage() {
   async function analyze(item: InboxItem) {
     setBusyId(item.id);
     setError("");
+    setNotice("");
     setNeedsKey(false);
     const res = await authFetch("/api/inbox/analyze", {
       method: "POST",
@@ -81,6 +84,30 @@ export default function InboxPage() {
         state: "pending",
       }));
       await saveSuggestions(item, suggestions);
+
+      // Detected commitments go to the review queue on the Commitments page.
+      const found: RawCommitment[] = body.commitments ?? [];
+      if (found.length > 0) {
+        const { error: cErr } = await createClient()
+          .from("commitments")
+          .insert(
+            found.map((c) => ({
+              direction: c.direction,
+              owner_name: c.owner_name,
+              counterparty: c.counterparty,
+              description: c.description,
+              due_date: c.due_date,
+              status: "suggested",
+              source_type: item.source_type,
+              source_id: item.id,
+              source_text: item.source_ref ? `${item.source_ref}: ${c.quote}` : c.quote,
+              confidence: c.confidence,
+              ai_generated: true,
+            }))
+          );
+        if (cErr) setError(cErr.message);
+        else setNotice(`${found.length} commitment${found.length > 1 ? "s" : ""} detected and waiting for your review.`);
+      }
     }
     setBusyId(null);
   }
@@ -211,6 +238,15 @@ export default function InboxPage() {
               Open Settings
             </Link>
           )}
+        </p>
+      )}
+
+      {notice && (
+        <p className="mb-4 rounded-md border border-success-600/20 bg-success-50 px-3 py-2 text-success-600">
+          {notice}{" "}
+          <Link href="/commitments" className="font-medium underline">
+            Review commitments
+          </Link>
         </p>
       )}
 

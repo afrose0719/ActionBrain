@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
-import type { Task } from "@/lib/types";
+import type { Commitment, Task } from "@/lib/types";
 
 function greeting() {
   const h = new Date().getHours();
@@ -21,11 +21,17 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: str
 
 export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[] | null>(null);
+  const [commitments, setCommitments] = useState<Commitment[]>([]);
 
   useEffect(() => {
     (async () => {
-      const { data } = await createClient().from("tasks").select("*");
-      setTasks((data as Task[]) ?? []);
+      const supabase = createClient();
+      const [t, c] = await Promise.all([
+        supabase.from("tasks").select("*"),
+        supabase.from("commitments").select("*").eq("status", "open"),
+      ]);
+      setCommitments((c.data as Commitment[]) ?? []);
+      setTasks((t.data as Task[]) ?? []);
     })();
   }, []);
 
@@ -53,10 +59,11 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Stat label="Open tasks" value={open.length} />
         <Stat label="Due today" value={dueToday.length} tone="text-warning-600" />
         <Stat label="Overdue" value={overdue.length} tone="text-danger-600" />
+        <Stat label="My commitments" value={commitments.filter((c) => c.direction === "mine").length} />
         <Stat label="Completed" value={done.length} tone="text-success-600" />
       </div>
 

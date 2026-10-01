@@ -124,3 +124,39 @@ export function validateSuggestions(raw: unknown): RawSuggestion[] {
   }
   return out;
 }
+
+export type RawCommitment = {
+  direction: "mine" | "theirs";
+  owner_name: string | null;
+  counterparty: string | null;
+  description: string;
+  due_date: string | null;
+  confidence: number;
+  quote: string;
+};
+
+const short = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+
+/** Checks the AI's list of detected commitments. Bad entries are dropped. */
+export function validateCommitments(raw: unknown): RawCommitment[] {
+  const list = raw && typeof raw === "object" ? (raw as Record<string, unknown>).commitments : null;
+  if (!Array.isArray(list)) return [];
+
+  const out: RawCommitment[] = [];
+  for (const item of list.slice(0, 10)) {
+    const r = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+    const description = short(r.description, 300);
+    if (!description || (r.direction !== "mine" && r.direction !== "theirs")) continue;
+    const due = typeof r.due_date === "string" && !Number.isNaN(Date.parse(r.due_date)) ? new Date(r.due_date).toISOString() : null;
+    out.push({
+      direction: r.direction,
+      owner_name: short(r.owner, 120),
+      counterparty: short(r.counterparty, 120),
+      description,
+      due_date: due,
+      confidence: typeof r.confidence === "number" ? Math.min(1, Math.max(0, r.confidence)) : 0.5,
+      quote: short(r.quote, 300) ?? "",
+    });
+  }
+  return out;
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { KeyRound, ShieldCheck, Trash2 } from "lucide-react";
+import { KeyRound, ShieldCheck, Trash2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { PROVIDERS, type ProviderId } from "@/lib/ai/provider";
 
@@ -27,6 +27,8 @@ export default function SettingsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [name, setName] = useState("");
+  const [nameNotice, setNameNotice] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/settings/ai", { headers: await authHeaders() });
@@ -44,8 +46,16 @@ export default function SettingsPage() {
   useEffect(() => {
     (async () => {
       await load();
+      const { data } = await createClient().auth.getUser();
+      setName((data.user?.user_metadata?.full_name as string) ?? "");
     })();
   }, [load]);
+
+  async function saveName(e: React.FormEvent) {
+    e.preventDefault();
+    const { error } = await createClient().auth.updateUser({ data: { full_name: name.trim() } });
+    setNameNotice(error ? error.message : "Name saved.");
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -84,6 +94,26 @@ export default function SettingsPage() {
           <p className="page-subtitle">Connect your own AI provider. ActionBrain never pays for or shares AI access.</p>
         </div>
       </div>
+
+      <section className="card mb-6">
+        <div className="flex items-center gap-2 border-b border-line px-5 py-4">
+          <User size={16} className="text-brand-600" />
+          <h2>Profile</h2>
+        </div>
+        <form onSubmit={saveName} className="card-body grid gap-4">
+          <div>
+            <label className="label" htmlFor="name">Your name</label>
+            <input id="name" className="input" placeholder="e.g. Afrose" value={name} onChange={(e) => setName(e.target.value)} />
+            <p className="mt-1.5 text-xs text-ink-muted">
+              Used by AI to tell which commitments are yours when a message says &ldquo;Afrose, can you…&rdquo;.
+            </p>
+          </div>
+          {nameNotice && <p className="text-xs text-ink-muted">{nameNotice}</p>}
+          <div className="flex justify-end">
+            <button className="btn-primary">Save name</button>
+          </div>
+        </form>
+      </section>
 
       <section className="card">
         <div className="flex items-center gap-2 border-b border-line px-5 py-4">

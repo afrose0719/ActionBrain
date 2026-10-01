@@ -42,3 +42,24 @@ export type InboxItem = {
   ai_suggestions: Suggestion[];
   created_at: string;
 };
+
+export type Direction = "mine" | "theirs";
+export type CommitmentStatus = "suggested" | "open" | "done" | "dismissed";
+
+export type Commitment = {
+  id: string;
+  direction: Direction;
+  owner_name: string | null;
+  counterparty: string | null;
+  description: string;
+  due_date: string | null;
+  status: CommitmentStatus;
+  source_type: string | null;
+  source_id: string | null;
+  source_text: string | null;
+  confidence: number | null;
+  ai_generated: boolean;
+  task_id: string | null;
+  completed_at: string | null;
+  created_at: string;
+};
