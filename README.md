@@ -10,6 +10,7 @@
 | **Inbox** | Paste a message, import a WhatsApp chat export or `.eml` email, or send selected text from any web page (Chrome extension). AI suggests tasks and commitments. Nothing is created without your approval. |
 | **Commitments** | What you promised and what others promised you, with a review queue and at-risk warnings. |
 | **Waiting For** | Everything others owe you, grouped by person, with an AI briefing ("who should I chase today?"). |
+| **Record a call** | Press Record in Meetings. Your voice is transcribed **on your own device** (private, free, no upload) and turned into suggested tasks and commitments. See `docs/call-recording.md` for speed, limits and what is untested. |
 | **Meetings** | Paste or upload a transcript (`.txt`, `.vtt`, `.srt`). Get a summary, decisions, your action items and commitments. Optionally pick the meeting from Google Calendar. |
 | **Reminders** | The Chrome extension shows desktop notifications for due and overdue tasks and commitments, and "time to chase" nudges. The dashboard lists everything waiting for your review. |
 | **Install as an app** | Add ActionBrain to your phone or desktop (a PWA). On Android, **Share → ActionBrain** from WhatsApp, Gmail or any app sends the text to your Inbox. Shows a friendly offline page without a connection. |
@@ -42,6 +43,7 @@ Next.js (App Router) · TypeScript · Tailwind CSS v4 · Supabase (Postgres, Aut
 | `npm run build` / `npm start` | Production build and server |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript |
+| `npm run dev` / `npm run build` also run `scripts/copy-ort.mjs` first | Copies the 25.6 MB speech engine into `public/ort` (not committed). |
 | `npm run preflight` | Checks the project is ready to deploy (settings, database, leaked secrets). Changes nothing. |
 | `npm test` | Unit tests for the validators, encryption, parsers and Google logic |
 
@@ -61,6 +63,7 @@ See `extension/README.md`. Load the `extension` folder at `chrome://extensions` 
 
 ## Docs
 - `docs/deploy.md`: deploying to Vercel, step by step
+- `docs/call-recording.md`: on-device call recording: privacy, measured speed, security design, what is untested
 - `docs/accessibility.md`: accessibility standard, audit results, and what is still untested
 - `docs/google-calendar-setup.md`: Google Calendar setup
 - `docs/integrations.md`: research on Gmail, WhatsApp, Calendar and Microsoft, with sources

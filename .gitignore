@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# speech engine (13.6 MB), copied from node_modules by scripts/copy-ort.mjs before dev/build
+/public/ort/

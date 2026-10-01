@@ -20,6 +20,20 @@ const csp = [
   ...(isDev ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
 
+// The policy for Web Workers, which is separate from the one for pages. A worker is governed by the headers on its OWN
+// script file (served from /_next/static), not by the page that starts it. Local speech recognition (Whisper) runs in
+// a worker and needs two things pages do not: to run WebAssembly, and to download model files from Hugging Face.
+// Giving only the static script files these permissions leaves every page's policy above unchanged and strict.
+// The audio itself is never sent anywhere: only the model files are downloaded.
+const workerCsp = [
+  "default-src 'self'",
+  // blob: because the speech engine loads its own loader script by first copying it into a temporary blob URL
+  `script-src 'self' blob: 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
+  "connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co",
+  "object-src 'none'",
+  "base-uri 'none'",
+].join("; ");
+
 const securityHeaders = [
   { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -35,6 +49,8 @@ const nextConfig: NextConfig = {
   headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // Listed later, so for these files it replaces the page policy above (see "Header Overriding Behavior" in the Next.js docs).
+      { source: "/_next/static/:path*", headers: [{ key: "Content-Security-Policy", value: workerCsp }] },
       {
         // The service worker must never be cached, or users would be stuck on an old version of it.
         source: "/sw.js",

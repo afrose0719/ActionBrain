@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, CheckCircle2, FileText, Plus, Sparkles, Trash2, Upload, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, FileText, Mic, Plus, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
 import { cleanTranscript } from "@/lib/transcript";
 import { SuggestionList } from "@/components/suggestion-list";
+import { CallRecorder, type RecordingResult } from "@/components/call-recorder";
+import { formatDuration } from "@/lib/audio";
 import type { RawCommitment } from "@/lib/ai/actions";
 import type { CalendarEvent } from "@/lib/google";
 import type { Meeting, Suggestion } from "@/lib/types";
@@ -27,6 +29,7 @@ export default function MeetingsPage() {
 
   // form
   const [showForm, setShowForm] = useState(false);
+  const [showRecorder, setShowRecorder] = useState(false);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(nowForInput);
   const [attendees, setAttendees] = useState("");
@@ -177,6 +180,27 @@ export default function MeetingsPage() {
     analyze(data as Meeting);
   }
 
+  // A finished recording becomes a meeting, then goes through the same analysis as a pasted transcript.
+  async function saveRecording(r: RecordingResult) {
+    setError("");
+    setNotice("");
+    const when = r.startedAt.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    const { data, error } = await createClient()
+      .from("meetings")
+      .insert({
+        title: `Call on ${when} (${formatDuration(r.durationSec)})`,
+        meeting_date: r.startedAt.toISOString(),
+        attendees: null,
+        transcript: r.text,
+      })
+      .select()
+      .single();
+    if (error) return setError(error.message);
+    setShowRecorder(false);
+    await load();
+    analyze(data as Meeting);
+  }
+
   async function createTask(m: Meeting, s: Suggestion) {
     setBusyId(s.id);
     const { error } = await createClient()
@@ -215,13 +239,21 @@ export default function MeetingsPage() {
           <h1>Meetings</h1>
           <p className="page-subtitle">Turn a transcript into a summary, decisions, commitments and tasks.</p>
         </div>
-        {!showForm && (
-          <button className="btn-primary" onClick={() => setShowForm(true)}>
-            <Plus size={16} />
-            New meeting
-          </button>
+        {!showForm && !showRecorder && (
+          <div className="flex flex-wrap justify-end gap-2">
+            <button className="btn-secondary" onClick={() => setShowRecorder(true)}>
+              <Mic size={16} />
+              Record a call
+            </button>
+            <button className="btn-primary" onClick={() => setShowForm(true)}>
+              <Plus size={16} />
+              New meeting
+            </button>
+          </div>
         )}
       </div>
+
+      {showRecorder && <CallRecorder onTranscript={saveRecording} onClose={() => setShowRecorder(false)} />}
 
       {showForm && (
         <form onSubmit={addMeeting} className="card card-body mb-6 grid gap-4">

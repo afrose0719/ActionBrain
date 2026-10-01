@@ -21,6 +21,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // vendored third-party engine copied here by scripts/copy-ort.mjs
+    "public/ort/**",
   ]),
 ]);
 

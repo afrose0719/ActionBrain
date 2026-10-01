@@ -80,6 +80,12 @@ Notes:
 - **If a user's saved AI key stops working** ("could not be read"): the encryption key changed. They re-enter it in Settings.
 - **Errors:** `src/app/error.tsx` has a spot to send errors to a reporting service such as Sentry.
 
+## Call recording on your deployed site
+- The build runs `scripts/copy-ort.mjs` automatically (it is the `prebuild` script), which puts the 25.6 MB speech engine in `public/ort`. If a deploy ever fails with "could not find ort-wasm-simd-threaded", `npm install` did not complete.
+- `npm install` now downloads `onnxruntime-node` (about 290 MB) because the speech library lists it. Installs are slower, nothing else changes.
+- The recorder needs **HTTPS** (browsers only allow the microphone on secure pages; `localhost` also works).
+- After changing the worker security policy in `next.config.ts`, returning visitors may keep the old one until the worker file changes. See `docs/call-recording.md`.
+
 ## Known limitations
 - Sessions are checked in the browser. The database is protected by Row Level Security regardless, but pages briefly show a loading state before redirecting a logged-out visitor.
 - There is no rate limiting on the AI routes. Each user pays for their own AI use, so the risk is self-inflicted cost, not abuse of yours. Add per-user limits (for example with Upstash Redis) before a large public launch.
