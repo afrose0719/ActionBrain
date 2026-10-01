@@ -10,17 +10,27 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
+  function validate() {
+    if (!email.trim() || password.length < 6) {
+      setMessage("Enter your email and a password of at least 6 characters.");
+      return false;
+    }
+    return true;
+  }
+
   async function signUp() {
+    if (!validate()) return;
     const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
     if (error) return setMessage(error.message);
     if (data.session) return router.push("/dashboard");
     setMessage("Account created. Check your email to confirm, then log in.");
   }
 
   async function logIn() {
+    if (!validate()) return;
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) return setMessage(error.message);
     router.push("/dashboard");
   }

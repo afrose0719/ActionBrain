@@ -37,9 +37,14 @@ export default function DashboardPage() {
       <p className="mt-4">
         You have <strong>{taskCount}</strong> tasks.
       </p>
-      <button className="mt-6 rounded border px-3 py-1" onClick={logOut}>
-        Log out
-      </button>
+      <div className="mt-6 flex gap-3">
+        <a href="/tasks" className="rounded bg-black px-3 py-1 text-white">
+          Go to Tasks
+        </a>
+        <button className="rounded border px-3 py-1" onClick={logOut}>
+          Log out
+        </button>
+      </div>
     </main>
   );
 }
