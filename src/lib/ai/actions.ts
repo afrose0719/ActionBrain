@@ -84,3 +84,43 @@ export function validateAction(raw: unknown, tasks: TaskRef[]): Action {
       return bad("I did not understand that command.");
   }
 }
+
+export type RawSuggestion = {
+  title: string;
+  description: string | null;
+  priority: Priority;
+  due_date: string | null;
+  related_person: string | null;
+  confidence: number;
+  quote: string;
+};
+
+/** Checks the AI's list of detected tasks for the Inbox. Bad entries are dropped, never trusted. */
+export function validateSuggestions(raw: unknown): RawSuggestion[] {
+  const list = raw && typeof raw === "object" ? (raw as Record<string, unknown>).suggestions : null;
+  if (!Array.isArray(list)) return [];
+
+  const out: RawSuggestion[] = [];
+  for (const item of list.slice(0, 10)) {
+    const r = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+    const changes = cleanChanges({
+      title: r.title,
+      description: r.description ?? undefined,
+      priority: r.priority ?? undefined,
+      due_date: r.due_date ?? undefined,
+      related_person: r.related_person ?? undefined,
+    });
+    if (!changes?.title) continue;
+    const confidence = typeof r.confidence === "number" ? Math.min(1, Math.max(0, r.confidence)) : 0.5;
+    out.push({
+      title: changes.title,
+      description: changes.description ?? null,
+      priority: changes.priority ?? "medium",
+      due_date: changes.due_date ?? null,
+      related_person: changes.related_person ?? null,
+      confidence,
+      quote: typeof r.quote === "string" ? r.quote.slice(0, 300) : "",
+    });
+  }
+  return out;
+}

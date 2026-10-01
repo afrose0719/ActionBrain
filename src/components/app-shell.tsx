@@ -22,7 +22,7 @@ type NavItem = { label: string; href: string; icon: LucideIcon; soon?: boolean }
 const NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Tasks", href: "/tasks", icon: CheckSquare },
-  { label: "Inbox", href: "/inbox", icon: Inbox, soon: true },
+  { label: "Inbox", href: "/inbox", icon: Inbox },
   { label: "Commitments", href: "/commitments", icon: Handshake, soon: true },
   { label: "Waiting For", href: "/waiting", icon: Clock, soon: true },
   { label: "Meetings", href: "/meetings", icon: Video, soon: true },

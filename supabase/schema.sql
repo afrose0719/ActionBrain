@@ -62,3 +62,25 @@ create policy "Users delete own ai settings" on public.user_ai_settings for dele
 
 create trigger user_ai_settings_set_updated_at before update on public.user_ai_settings
 for each row execute function public.set_updated_at();
+
+
+-- ---------------------------------------------------------------
+-- Milestone 5: Inbox — raw captured text waiting to be turned into tasks.
+-- ---------------------------------------------------------------
+create table if not exists public.inbox_items (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  source_type    text not null default 'note',
+  source_ref     text,                       -- e.g. "Email from Rajesh"
+  content        text not null,
+  status         text not null default 'new' check (status in ('new', 'analyzed', 'archived')),
+  ai_suggestions jsonb not null default '[]'::jsonb,
+  created_at     timestamptz not null default now()
+);
+
+alter table public.inbox_items enable row level security;
+
+create policy "Users read own inbox"   on public.inbox_items for select using (auth.uid() = user_id);
+create policy "Users insert own inbox" on public.inbox_items for insert with check (auth.uid() = user_id);
+create policy "Users update own inbox" on public.inbox_items for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Users delete own inbox" on public.inbox_items for delete using (auth.uid() = user_id);
