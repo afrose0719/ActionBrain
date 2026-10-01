@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "ActionBrain",
-  "version": "0.1.0",
-  "description": "Select text on any page, right-click, and send it to your ActionBrain Inbox.",
-  "permissions": ["contextMenus", "storage", "notifications"],
+  "version": "0.2.0",
+  "description": "Send selected text to your ActionBrain Inbox, and get desktop reminders for tasks and commitments that are due.",
+  "permissions": ["contextMenus", "storage", "notifications", "alarms"],
   "host_permissions": ["https://jqbdeydalcaltfmdphon.supabase.co/*"],
   "background": { "service_worker": "background.js", "type": "module" },
   "action": { "default_popup": "popup.html", "default_title": "ActionBrain" },

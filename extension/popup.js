@@ -13,6 +13,8 @@ async function render() {
   $("login").hidden = !!email;
   $("main").hidden = !email;
   if (email) {
+    const { reminders = true } = await chrome.storage.local.get("reminders");
+    $("reminders").checked = reminders;
     $("who").textContent = email;
     $("open").href = `${APP_URL}/inbox`;
   }
@@ -41,6 +43,10 @@ $("send").addEventListener("click", async () => {
   } else {
     say(result.error, "error");
   }
+});
+
+$("reminders").addEventListener("change", (e) => {
+  chrome.storage.local.set({ reminders: e.target.checked });
 });
 
 $("logout").addEventListener("click", async () => {

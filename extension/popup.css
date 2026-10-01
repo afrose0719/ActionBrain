@@ -31,6 +31,8 @@ button { font: inherit; cursor: pointer; }
 a { color: #4f46e5; text-decoration: none; }
 .row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
 .muted { margin: 0; color: #64748b; }
+label.check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; font-weight: 400; color: #0f172a; }
+label.check input { width: auto; margin-top: 2px; accent-color: #4f46e5; }
 .tip { margin: 0; padding: 8px 12px; border-radius: 8px; background: #eef2ff; color: #4338ca; font-size: 12px; }
 #msg { min-height: 20px; margin: 12px 0 0; font-size: 12px; }
 #msg.error { color: #dc2626; }

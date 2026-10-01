@@ -56,6 +56,31 @@ async function getValidToken() {
   }
 }
 
+async function restGet(path, token) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { apikey: SUPABASE_KEY, authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Could not read ${path.split("?")[0]} (${res.status})`);
+  return res.json();
+}
+
+/**
+ * Tasks and commitments that are due soon or recently overdue, for desktop reminders.
+ * Returns null if the user is not logged in. Row Level Security limits this to the user's own rows.
+ */
+export async function fetchReminderData(now = Date.now()) {
+  const token = await getValidToken();
+  if (!token) return null;
+  const from = encodeURIComponent(new Date(now - 8 * 86_400_000).toISOString());
+  const to = encodeURIComponent(new Date(now + 2 * 3_600_000).toISOString());
+  const range = `due_date=gte.${from}&due_date=lte.${to}&order=due_date.asc&limit=50`;
+  const [tasks, commitments] = await Promise.all([
+    restGet(`tasks?select=id,title,status,due_date&status=eq.todo&${range}`, token),
+    restGet(`commitments?select=id,description,direction,status,owner_name,due_date&status=eq.open&${range}`, token),
+  ]);
+  return { tasks, commitments };
+}
+
 /** Saves text into the user's ActionBrain Inbox. Returns { ok: true } or { ok: false, error }. */
 export async function sendToInbox(text, page = {}) {
   const content = (text || "").trim().slice(0, MAX_TEXT);

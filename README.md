@@ -11,6 +11,7 @@
 | **Commitments** | What you promised and what others promised you, with a review queue and at-risk warnings. |
 | **Waiting For** | Everything others owe you, grouped by person, with an AI briefing ("who should I chase today?"). |
 | **Meetings** | Paste or upload a transcript (`.txt`, `.vtt`, `.srt`). Get a summary, decisions, your action items and commitments. Optionally pick the meeting from Google Calendar. |
+| **Reminders** | The Chrome extension shows desktop notifications for due and overdue tasks and commitments, and "time to chase" nudges. The dashboard lists everything waiting for your review. |
 | **Search** | Ask questions across your tasks, commitments and messages. Answers cite their sources. |
 
 **Bring your own AI key.** Each user adds their own Anthropic, OpenAI or Gemini key in Settings. It is stored encrypted and never shown again, so the app owner never pays for anyone's AI use.
