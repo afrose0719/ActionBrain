@@ -2,6 +2,16 @@
 
 Free tiers are enough to start. You do the account steps; nothing here needs a credit card.
 
+## Step 0: run the pre-flight check
+```bash
+npm run preflight
+```
+It changes nothing. It checks your settings, your Supabase database (every table exists, Row Level Security is on, the delete function is installed) and your git repo (no `.env` files tracked, no secrets in any file or in the history). It exits with an error if something would break or leak.
+
+It refuses, for example, a **secret/service_role key in `NEXT_PUBLIC_SUPABASE_ANON_KEY`**. Anything starting with `NEXT_PUBLIC_` is sent to every visitor's browser, so a secret key there would let anyone bypass all data protection.
+
+Warnings are not blockers but read them: **"Email confirmation is OFF"** means anyone can sign up with someone else's email address. Fine while it is just you, not for a public launch.
+
 ## Before you deploy: checklist
 - [ ] `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` all pass (CI does this).
 - [ ] `supabase/schema.sql` has been run in your Supabase project. It includes the `delete_my_account` function that powers **Settings → Delete my account**.
@@ -18,12 +28,14 @@ Already done: https://github.com/afrose0719/ActionBrain. Consider making it **Pr
 
 | Name | Value |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | same as `.env.local` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | the publishable key |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → Data API → **Project URL** (same as `.env.local`) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API Keys → the **publishable** key (`sb_publishable_...`). **Never** the secret key. |
 | `AI_KEY_ENCRYPTION_KEY` | **the same value as in `.env.local`**, otherwise keys users already saved cannot be read |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | only if you use Calendar |
 
 4. Click **Deploy**. You get a URL like `https://actionbrain-xyz.vercel.app`.
+5. Open `https://YOUR-URL/api/health`. It should show `{"status":"ok", ...}`. If it says `degraded`, a variable is missing or wrong: `supabase: false` means the two Supabase variables, `encryptionKey: false` means `AI_KEY_ENCRYPTION_KEY`. After fixing a variable in Vercel, redeploy (Deployments → ⋯ → Redeploy), because variables are read at build time.
+6. Optional: point a free uptime monitor (UptimeRobot, Better Stack) at `/api/health`. It makes no database or AI calls, so checking it every minute costs nothing.
 
 ## 3. Tell Supabase about the new address
 Supabase → **Authentication → URL Configuration**:

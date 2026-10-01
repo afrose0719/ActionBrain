@@ -42,6 +42,7 @@ Next.js (App Router) · TypeScript · Tailwind CSS v4 · Supabase (Postgres, Aut
 | `npm run build` / `npm start` | Production build and server |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript |
+| `npm run preflight` | Checks the project is ready to deploy (settings, database, leaked secrets). Changes nothing. |
 | `npm test` | Unit tests for the validators, encryption, parsers and Google logic |
 
 CI (`.github/workflows/ci.yml`) runs lint, typecheck, tests and build on every push. `npm run typecheck` generates Next.js route types first, so it also works on a fresh clone.
