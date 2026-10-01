@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Check, Sparkles, X } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import type { Action, TaskChanges } from "@/lib/ai/actions";
@@ -25,6 +26,7 @@ export function CommandBox({ tasks, onDone }: { tasks: Task[]; onDone: () => voi
   const [command, setCommand] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [needsKey, setNeedsKey] = useState(false);
   const [action, setAction] = useState<Action | null>(null);
 
   const taskTitle = (id: string) => tasks.find((t) => t.id === id)?.title ?? "(unknown task)";
@@ -34,6 +36,7 @@ export function CommandBox({ tasks, onDone }: { tasks: Task[]; onDone: () => voi
     if (!command.trim()) return;
     setBusy(true);
     setError("");
+    setNeedsKey(false);
     setAction(null);
 
     const supabase = createClient();
@@ -50,7 +53,10 @@ export function CommandBox({ tasks, onDone }: { tasks: Task[]; onDone: () => voi
     });
     const body = await res.json().catch(() => ({}));
     setBusy(false);
-    if (!res.ok) return setError(body.error ?? "Something went wrong.");
+    if (!res.ok) {
+      setNeedsKey(body.code === "NO_KEY");
+      return setError(body.error ?? "Something went wrong.");
+    }
     setAction(body.action);
   }
 
@@ -98,7 +104,16 @@ export function CommandBox({ tasks, onDone }: { tasks: Task[]; onDone: () => voi
         </button>
       </form>
 
-      {error && <p className="alert-error mt-3">{error}</p>}
+      {error && (
+        <p className="alert-error mt-3">
+          {error}{" "}
+          {needsKey && (
+            <Link href="/settings" className="font-medium underline">
+              Open Settings
+            </Link>
+          )}
+        </p>
+      )}
 
       {action && (
         <div className="mt-4 rounded-md border border-line bg-canvas p-4">

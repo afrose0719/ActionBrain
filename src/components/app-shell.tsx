@@ -27,7 +27,7 @@ const NAV: NavItem[] = [
   { label: "Waiting For", href: "/waiting", icon: Clock, soon: true },
   { label: "Meetings", href: "/meetings", icon: Video, soon: true },
   { label: "Search", href: "/search", icon: Search, soon: true },
-  { label: "Settings", href: "/settings", icon: Settings, soon: true },
+  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function AppShell({ email, children }: { email: string; children: React.ReactNode }) {
