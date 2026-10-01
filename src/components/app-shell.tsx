@@ -41,6 +41,13 @@ export function AppShell({ email, children }: { email: string; children: React.R
 
   return (
     <div className="flex min-h-screen">
+      {/* first thing a keyboard user can Tab to: jumps past the navigation to the page content */}
+      <a
+        href="#main-content"
+        className="fixed left-3 top-3 z-50 -translate-y-20 rounded-md bg-surface px-4 py-2 font-medium text-brand-700 shadow-card transition-transform focus:translate-y-0"
+      >
+        Skip to main content
+      </a>
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-surface md:flex">
         <div className="flex h-14 items-center gap-2 border-b border-line px-5">
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-white">
@@ -49,7 +56,7 @@ export function AppShell({ email, children }: { email: string; children: React.R
           <span className="text-base font-semibold">ActionBrain</span>
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
+        <nav className="flex-1 space-y-1 p-3" aria-label="Main">
           {NAV.map(({ label, href, icon: Icon, soon }) => {
             const active = pathname === href;
             const base = "flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium";
@@ -66,6 +73,7 @@ export function AppShell({ email, children }: { email: string; children: React.R
               <Link
                 key={href}
                 href={href}
+                aria-current={active ? "page" : undefined}
                 className={`${base} transition-colors ${
                   active ? "bg-brand-50 text-brand-700" : "text-ink-muted hover:bg-canvas hover:text-ink"
                 }`}
@@ -96,6 +104,7 @@ export function AppShell({ email, children }: { email: string; children: React.R
             <Link
               key={href}
               href={href}
+              aria-current={pathname === href ? "page" : undefined}
               className={`flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-xs font-medium ${
                 pathname === href ? "bg-brand-50 text-brand-700" : "text-ink-muted"
               }`}
@@ -106,7 +115,9 @@ export function AppShell({ email, children }: { email: string; children: React.R
           ))}
         </nav>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+        <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-5xl flex-1 p-4 outline-none sm:p-6 lg:p-8">
+          {children}
+        </main>
       </div>
     </div>
   );

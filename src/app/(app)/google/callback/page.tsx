@@ -41,7 +41,7 @@ export default function GoogleCallbackPage() {
     <div className="mx-auto max-w-md pt-16 text-center">
       {error ? (
         <>
-          <p className="alert-error">{error}</p>
+          <p role="alert" className="alert-error">{error}</p>
           <Link href="/settings" className="btn-primary mt-4">
             Back to Settings
           </Link>

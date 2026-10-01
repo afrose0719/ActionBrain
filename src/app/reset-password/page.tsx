@@ -64,14 +64,14 @@ export default function ResetPasswordPage() {
               <label className="label" htmlFor="pw2">Confirm new password</label>
               <input id="pw2" type="password" autoComplete="new-password" className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
             </div>
-            {message && <p className="alert-error">{message}</p>}
+            {message && <p role="alert" className="alert-error">{message}</p>}
             <button className="btn-primary" disabled={busy}>
               {busy ? "Saving..." : "Save password"}
             </button>
           </form>
         ) : waited ? (
           <div className="card card-body grid gap-4 text-center">
-            <p className="alert-error">This reset link is invalid or has expired, or it was opened in a different browser than the one you requested it from.</p>
+            <p role="alert" className="alert-error">This reset link is invalid or has expired, or it was opened in a different browser than the one you requested it from.</p>
             <Link href="/login" className="btn-primary">
               Back to login
             </Link>

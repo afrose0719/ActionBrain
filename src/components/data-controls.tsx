@@ -150,7 +150,7 @@ export function DataControls() {
           </div>
         </div>
 
-        {error && <p className="alert-error">{error}</p>}
+        {error && <p role="alert" className="alert-error">{error}</p>}
       </div>
     </section>
   );

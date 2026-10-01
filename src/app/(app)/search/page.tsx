@@ -98,7 +98,6 @@ export default function SearchPage() {
               readOnly={speech.listening}
               maxLength={300}
               onChange={(e) => setQuestion(e.target.value)}
-              autoFocus
             />
           </div>
           <MicButton supported={speech.supported} listening={speech.listening} onStart={speech.start} onStop={speech.stop} />
@@ -125,10 +124,10 @@ export default function SearchPage() {
         </div>
       </form>
 
-      {!error && speech.error && <p className="alert-error mt-6">{speech.error}</p>}
+      {!error && speech.error && <p role="alert" className="alert-error mt-6">{speech.error}</p>}
 
       {error && (
-        <p className="alert-error mt-6">
+        <p role="alert" className="alert-error mt-6">
           {error}{" "}
           {needsKey && (
             <Link href="/settings" className="font-medium underline">

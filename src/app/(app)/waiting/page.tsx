@@ -149,7 +149,7 @@ export default function WaitingForPage() {
           </button>
         </div>
         {askError && (
-          <p className="alert-error mt-3">
+          <p role="alert" className="alert-error mt-3">
             {askError}{" "}
             {needsKey && (
               <Link href="/settings" className="font-medium underline">
@@ -192,7 +192,7 @@ export default function WaitingForPage() {
         </form>
       )}
 
-      {error && <p className="alert-error mb-4">{error}</p>}
+      {error && <p role="alert" className="alert-error mb-4">{error}</p>}
 
       {loading ? (
         <p className="text-ink-muted">Loading...</p>

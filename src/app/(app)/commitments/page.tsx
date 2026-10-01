@@ -107,7 +107,7 @@ export default function CommitmentsPage() {
       due_date: toInputValue(c.due_date),
     });
     setShowForm(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
 
   function closeForm() {
@@ -157,7 +157,7 @@ export default function CommitmentsPage() {
         )}
       </div>
 
-      {error && <p className="alert-error mb-4">{error}</p>}
+      {error && <p role="alert" className="alert-error mb-4">{error}</p>}
 
       {showForm && (
         <form onSubmit={save} className="card card-body mb-6 grid gap-4">

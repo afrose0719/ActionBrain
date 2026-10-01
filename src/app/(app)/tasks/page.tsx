@@ -111,7 +111,7 @@ export default function TasksPage() {
       source_text: t.source_text ?? "",
       related_person: t.related_person ?? "",
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
 
   async function toggleDone(t: Task) {
@@ -253,7 +253,7 @@ export default function TasksPage() {
             />
           </div>
 
-          {error && <p className="alert-error">{error}</p>}
+          {error && <p role="alert" className="alert-error">{error}</p>}
 
           <div className="flex justify-end gap-2">
             <button type="button" className="btn-secondary" onClick={closeForm}>
@@ -264,7 +264,7 @@ export default function TasksPage() {
         </form>
       )}
 
-      {!showForm && error && <p className="alert-error mb-4">{error}</p>}
+      {!showForm && error && <p role="alert" className="alert-error mb-4">{error}</p>}
 
       <div className="relative mb-4">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle" />

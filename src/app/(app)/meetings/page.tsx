@@ -317,7 +317,7 @@ export default function MeetingsPage() {
       )}
 
       {error && (
-        <p className="alert-error mb-4">
+        <p role="alert" className="alert-error mb-4">
           {error}{" "}
           {needsKey && (
             <Link href="/settings" className="font-medium underline">
@@ -327,7 +327,7 @@ export default function MeetingsPage() {
         </p>
       )}
       {notice && (
-        <p className="mb-4 rounded-md border border-success-600/20 bg-success-50 px-3 py-2 text-success-600">
+        <p role="status" className="mb-4 rounded-md border border-success-600/20 bg-success-50 px-3 py-2 text-success-600">
           {notice}{" "}
           <Link href="/commitments" className="font-medium underline">
             Review commitments

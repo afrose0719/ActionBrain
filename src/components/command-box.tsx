@@ -119,10 +119,10 @@ export function CommandBox({ tasks, onDone }: { tasks: Task[]; onDone: () => voi
         </button>
       </form>
 
-      {!error && speech.error && <p className="alert-error mt-3">{speech.error}</p>}
+      {!error && speech.error && <p role="alert" className="alert-error mt-3">{speech.error}</p>}
 
       {error && (
-        <p className="alert-error mt-3">
+        <p role="alert" className="alert-error mt-3">
           {error}{" "}
           {needsKey && (
             <Link href="/settings" className="font-medium underline">

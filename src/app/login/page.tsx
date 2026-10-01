@@ -11,7 +11,7 @@ function DeletedNotice() {
   const params = useSearchParams();
   if (!params.get("deleted")) return null;
   return (
-    <p className="mb-4 rounded-md border border-success-600/20 bg-success-50 px-3 py-2 text-center text-success-600">
+    <p role="status" className="mb-4 rounded-md border border-success-600/20 bg-success-50 px-3 py-2 text-center text-success-600">
       Your account and all of its data were deleted.
     </p>
   );
@@ -117,9 +117,9 @@ export default function LoginPage() {
             />
           </div>
 
-          {message && <p className="alert-error">{message}</p>}
+          {message && <p role="alert" className="alert-error">{message}</p>}
           {info && !message && (
-            <p className="rounded-md border border-success-600/20 bg-success-50 px-3 py-2 text-success-600">{info}</p>
+            <p role="status" className="rounded-md border border-success-600/20 bg-success-50 px-3 py-2 text-success-600">{info}</p>
           )}
 
           <button className="btn-primary" disabled={busy}>

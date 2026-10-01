@@ -61,6 +61,7 @@ See `extension/README.md`. Load the `extension` folder at `chrome://extensions` 
 
 ## Docs
 - `docs/deploy.md`: deploying to Vercel, step by step
+- `docs/accessibility.md`: accessibility standard, audit results, and what is still untested
 - `docs/google-calendar-setup.md`: Google Calendar setup
 - `docs/integrations.md`: research on Gmail, WhatsApp, Calendar and Microsoft, with sources
 - `supabase/`: SQL for each milestone

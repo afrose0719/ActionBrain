@@ -196,7 +196,7 @@ export default function SettingsPage() {
           <p className="text-ink-muted">
             Read-only. Lets you pick a meeting from your calendar when adding a transcript. ActionBrain can view your events but never change them.
           </p>
-          {googleError && <p className="alert-error">{googleError}</p>}
+          {googleError && <p role="alert" className="alert-error">{googleError}</p>}
           {google && !google.configured ? (
             <p className="rounded-md border border-line bg-canvas px-4 py-3 text-ink-muted">
               Not set up on this server yet. Follow <code>docs/google-calendar-setup.md</code>, then restart the server.
@@ -295,9 +295,9 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          {error && <p className="alert-error">{error}</p>}
+          {error && <p role="alert" className="alert-error">{error}</p>}
           {notice && (
-            <p className="rounded-md border border-success-600/20 bg-success-50 px-3 py-2 text-success-600">{notice}</p>
+            <p role="status" className="rounded-md border border-success-600/20 bg-success-50 px-3 py-2 text-success-600">{notice}</p>
           )}
 
           <div className="flex justify-end">

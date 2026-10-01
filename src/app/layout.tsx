@@ -13,7 +13,7 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "ActionBrain",
+  title: { default: "ActionBrain", template: "%s · ActionBrain" },
   description: "Never lose a commitment again.",
   applicationName: "ActionBrain",
   // iPhone / iPad "Add to Home Screen"
