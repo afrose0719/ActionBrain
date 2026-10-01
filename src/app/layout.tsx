@@ -1,11 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { PwaRegister } from "@/components/pwa-register";
 
-const inter = Inter({
+// Inter (SIL Open Font License, see ./fonts/Inter-OFL-LICENSE.txt), bundled with the app on purpose.
+// Loading it from Google Fonts meant every build downloaded it, so a slow or blocked network could fail a deploy.
+const inter = localFont({
+  src: "./fonts/inter-latin-wght-normal.woff2",
   variable: "--font-inter",
-  subsets: ["latin"],
+  weight: "100 900", // one variable file covers every weight
+  display: "swap",
 });
 
 export const metadata: Metadata = {
