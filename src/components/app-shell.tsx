@@ -26,7 +26,7 @@ const NAV: NavItem[] = [
   { label: "Commitments", href: "/commitments", icon: Handshake },
   { label: "Waiting For", href: "/waiting", icon: Clock },
   { label: "Meetings", href: "/meetings", icon: Video, soon: true },
-  { label: "Search", href: "/search", icon: Search, soon: true },
+  { label: "Search", href: "/search", icon: Search },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
