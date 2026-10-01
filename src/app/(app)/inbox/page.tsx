@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Archive, Sparkles } from "lucide-react";
+import { Archive, Sparkles, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
 import type { RawCommitment } from "@/lib/ai/actions";
 import { SuggestionList } from "@/components/suggestion-list";
+import { formatEmail, parseEml } from "@/lib/import/email";
+import { chatNameFromFilename, formatWhatsApp, parseWhatsApp } from "@/lib/import/whatsapp";
 import type { InboxItem, Suggestion } from "@/lib/types";
 
 const SOURCES = ["email", "whatsapp", "meeting", "browser", "call", "note"];
@@ -24,6 +26,7 @@ export default function InboxPage() {
   const [sourceType, setSourceType] = useState("email");
   const [sourceRef, setSourceRef] = useState("");
   const [adding, setAdding] = useState(false);
+  const [importNote, setImportNote] = useState("");
 
   const load = useCallback(async () => {
     const { data, error } = await createClient()
@@ -101,6 +104,42 @@ export default function InboxPage() {
       }
     }
     setBusyId(null);
+  }
+
+  // Import a WhatsApp chat export (.txt) or an email (.eml). It only fills the form: you review it before saving.
+  async function onImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow choosing the same file again
+    if (!file) return;
+    setError("");
+    setImportNote("");
+    if (file.size > 5_000_000) return setError("That file is over 5 MB. Export a shorter chat or paste the part you need.");
+
+    const raw = await file.text();
+    if (file.name.toLowerCase().endsWith(".eml")) {
+      const mail = parseEml(raw);
+      if (!mail.body) return setError("I could not find any readable text in that email file.");
+      const f = formatEmail(mail);
+      setSourceType("email");
+      setSourceRef(f.ref);
+      setContent(f.text);
+      setImportNote("Email imported. Review it, then click Add & analyze.");
+      return;
+    }
+
+    const messages = parseWhatsApp(raw);
+    if (messages.length === 0) {
+      return setError("That does not look like a WhatsApp chat export or an .eml email. You can still paste the text below.");
+    }
+    const f = formatWhatsApp(messages);
+    setSourceType("whatsapp");
+    setSourceRef(`WhatsApp chat with ${chatNameFromFilename(file.name)}`);
+    setContent(f.text);
+    setImportNote(
+      f.included < f.total
+        ? `Imported the most recent ${f.included} of ${f.total} messages (the limit is about 6,000 characters). Review, then click Add & analyze.`
+        : `Imported all ${f.total} messages. Review, then click Add & analyze.`
+    );
   }
 
   async function addItem(e: React.FormEvent) {
@@ -191,7 +230,14 @@ export default function InboxPage() {
           </div>
         </div>
         <div>
-          <label className="label" htmlFor="content">Message</label>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label className="label !mb-0" htmlFor="content">Message</label>
+            <label className="btn-secondary btn-sm cursor-pointer">
+              <Upload size={14} />
+              Import WhatsApp chat or .eml email
+              <input type="file" accept=".txt,.eml,text/plain,message/rfc822" className="sr-only" onChange={onImport} />
+            </label>
+          </div>
           <textarea
             id="content"
             className="input"
@@ -201,6 +247,7 @@ export default function InboxPage() {
             value={content}
             onChange={(e) => setContent(e.target.value)}
           />
+          {importNote && <p className="mt-1.5 text-xs text-ink-muted">{importNote}</p>}
         </div>
         <div className="flex justify-end">
           <button className="btn-primary" disabled={adding || !content.trim()}>
