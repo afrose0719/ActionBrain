@@ -4,6 +4,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Brain } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { safeNextPath } from "@/lib/navigation";
+
+// After logging in, go back to the page the user was trying to open (only ever a safe path on this site).
+function nextPath() {
+  try {
+    const saved = sessionStorage.getItem("after_login");
+    sessionStorage.removeItem("after_login");
+    return safeNextPath(saved) ?? "/dashboard";
+  } catch {
+    return "/dashboard";
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,7 +40,7 @@ export default function LoginPage() {
     const { data, error } = await createClient().auth.signUp({ email: email.trim(), password });
     setBusy(false);
     if (error) return setMessage(error.message);
-    if (data.session) return router.push("/dashboard");
+    if (data.session) return router.push(nextPath());
     setMessage("");
     setInfo("Account created. Check your email to confirm, then log in.");
   }
@@ -52,7 +64,7 @@ export default function LoginPage() {
     const { error } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
     if (error) return setMessage(error.message);
-    router.push("/dashboard");
+    router.push(nextPath());
   }
 
   return (

@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, KeyRound, ShieldCheck, Trash2, User } from "lucide-react";
+import { CalendarDays, KeyRound, ShieldCheck, Smartphone, Trash2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
+import { useInstall } from "@/lib/use-install";
 import { PROVIDERS, type ProviderId } from "@/lib/ai/provider";
 
 type Saved = { provider: ProviderId; model: string | null; key_hint: string | null } | null;
@@ -20,6 +21,7 @@ async function authHeaders() {
 }
 
 export default function SettingsPage() {
+  const install = useInstall();
   const [saved, setSaved] = useState<Saved>(null);
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState<ProviderId>("anthropic");
@@ -144,6 +146,44 @@ export default function SettingsPage() {
             <button className="btn-primary">Save name</button>
           </div>
         </form>
+      </section>
+
+      <section className="card mb-6">
+        <div className="flex items-center gap-2 border-b border-line px-5 py-4">
+          <Smartphone size={16} className="text-brand-600" />
+          <h2>Install the app</h2>
+        </div>
+        <div className="card-body grid gap-3">
+          {install.installed ? (
+            <p className="flex items-center gap-2 text-ink-muted">
+              <ShieldCheck size={16} className="text-success-600" />
+              ActionBrain is installed on this device.
+            </p>
+          ) : (
+            <>
+              <p className="text-ink-muted">
+                Add ActionBrain to your home screen or desktop. It opens in its own window like a normal app.
+                On Android you can also use <strong>Share → ActionBrain</strong> in WhatsApp, Gmail or any app to send text straight to your Inbox.
+              </p>
+              {install.canInstall ? (
+                <div>
+                  <button type="button" className="btn-primary" onClick={install.install}>
+                    Install ActionBrain
+                  </button>
+                </div>
+              ) : install.isIos ? (
+                <p className="rounded-md border border-line bg-canvas px-4 py-3 text-ink-muted">
+                  On iPhone or iPad: tap the <strong>Share</strong> button in Safari, then <strong>Add to Home Screen</strong>.
+                </p>
+              ) : (
+                <p className="rounded-md border border-line bg-canvas px-4 py-3 text-ink-muted">
+                  In Chrome or Edge, click the install icon at the right of the address bar, or open the browser menu and choose <strong>Install ActionBrain</strong>.
+                  The app must be served over HTTPS (your deployed site, or localhost while developing).
+                </p>
+              )}
+            </>
+          )}
+        </div>
       </section>
 
       <section className="card mb-6">

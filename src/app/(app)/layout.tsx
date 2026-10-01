@@ -13,7 +13,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       const { data } = await createClient().auth.getUser();
-      if (!data.user) return router.push("/login");
+      if (!data.user) {
+        // remember the page (and any shared text in its query) so login can bring the user back to it
+        try {
+          sessionStorage.setItem("after_login", window.location.pathname + window.location.search);
+        } catch {
+          /* private mode: fall back to the dashboard */
+        }
+        return router.push("/login");
+      }
       setEmail(data.user.email ?? "");
     })();
   }, [router]);

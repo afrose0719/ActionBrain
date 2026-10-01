@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Archive, Sparkles, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
+import { sharedTextFrom } from "@/lib/navigation";
 import type { RawCommitment } from "@/lib/ai/actions";
 import { SuggestionList } from "@/components/suggestion-list";
 import { formatEmail, parseEml } from "@/lib/import/email";
@@ -13,7 +14,11 @@ import type { InboxItem, Suggestion } from "@/lib/types";
 
 const SOURCES = ["email", "whatsapp", "meeting", "browser", "call", "note"];
 
+// Android's Share menu opens /inbox?title=...&text=...&url=... (see src/app/manifest.ts "share_target").
+const readShared = () => (typeof window === "undefined" ? null : sharedTextFrom(window.location.search));
+
 export default function InboxPage() {
+  const [shared] = useState(readShared);
   const [items, setItems] = useState<InboxItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -22,11 +27,16 @@ export default function InboxPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // add form
-  const [content, setContent] = useState("");
-  const [sourceType, setSourceType] = useState("email");
-  const [sourceRef, setSourceRef] = useState("");
+  const [content, setContent] = useState(shared ?? "");
+  const [sourceType, setSourceType] = useState(shared ? "note" : "email");
+  const [sourceRef, setSourceRef] = useState(shared ? "Shared from another app" : "");
   const [adding, setAdding] = useState(false);
-  const [importNote, setImportNote] = useState("");
+  const [importNote, setImportNote] = useState(shared ? "Shared text received. Review it, then click Add & analyze." : "");
+
+  // tidy the address bar so a refresh does not re-fill the form
+  useEffect(() => {
+    if (shared) window.history.replaceState(null, "", "/inbox");
+  }, [shared]);
 
   const load = useCallback(async () => {
     const { data, error } = await createClient()
