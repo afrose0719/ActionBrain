@@ -75,6 +75,7 @@ if (!canProbe) {
       ["commitments", "id", { description: "preflight" }],
       ["meetings", "id", { title: "preflight", transcript: "x" }],
       ["google_connections", "user_id", { encrypted_refresh_token: "x" }],
+      ["intake_settings", "user_id", { token_hash: "x" }],
     ];
     for (const [table, col, sample] of tables) {
       const read = await call(`/rest/v1/${table}?select=${col}&limit=1`);
@@ -93,6 +94,11 @@ if (!canProbe) {
     if (fn.body?.code === "42501") add(SECTION_DB, pass("delete_my_account exists and anonymous visitors are refused."));
     else if (fn.status === 404) add(SECTION_DB, fail('Function "delete_my_account" is missing. Run supabase/milestone17-privacy.sql. Without it, "Delete my account" will not work.'));
     else add(SECTION_DB, fail(`delete_my_account answered an anonymous call with ${fn.status} (${fn.body?.code ?? "?"}). It must refuse anonymous callers.`));
+
+    const intake = await call("/rest/v1/rpc/ingest_message", { method: "POST", body: JSON.stringify({ p_token: "preflight", p_sender: "x", p_text: "x" }) });
+    if (intake.status === 200 && intake.body === "invalid") add(SECTION_DB, pass("ingest_message exists and rejects a wrong token."));
+    else if (intake.status === 404) add(SECTION_DB, fail('Function "ingest_message" is missing. Run supabase/milestone22-intake.sql. Phone message intake will not work without it.'));
+    else add(SECTION_DB, fail(`ingest_message answered a wrong token with ${intake.status} (${JSON.stringify(intake.body)}). It must answer "invalid".`));
 
     if (reach.body?.mailer_autoconfirm === true) {
       add(SECTION_DB, warn("Email confirmation is OFF, so anyone can sign up with any address, including one that is not theirs. Turn it on (Authentication → Sign In / Providers → Email → Confirm email) and set up SMTP before a public launch."));

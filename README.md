@@ -11,6 +11,7 @@
 | **Commitments** | What you promised and what others promised you, with a review queue and at-risk warnings. |
 | **Waiting For** | Everything others owe you, grouped by person, with an AI briefing ("who should I chase today?"). |
 | **Record a call** | Press Record in Meetings. Your voice is transcribed **on your own device** (private, free, no upload) and turned into suggested tasks and commitments. See `docs/call-recording.md` for speed, limits and what is untested. |
+| **Phone messages (WhatsApp, Android)** | An automation app on your phone sends WhatsApp notifications to your private address; they land in the Inbox for you to analyze and approve. No WhatsApp login, no ban risk. See `docs/whatsapp-intake.md`. |
 | **Phone call recordings (Android)** | Record calls with your phone's own recorder, then **Share → ActionBrain**. It is transcribed on the phone (private, free) and turned into suggested tasks and commitments. See `docs/android-call-recordings.md`. |
 | **Meetings** | Paste or upload a transcript (`.txt`, `.vtt`, `.srt`). Get a summary, decisions, your action items and commitments. Optionally pick the meeting from Google Calendar. |
 | **Reminders** | The Chrome extension shows desktop notifications for due and overdue tasks and commitments, and "time to chase" nudges. The dashboard lists everything waiting for your review. |
@@ -64,6 +65,7 @@ See `extension/README.md`. Load the `extension` folder at `chrome://extensions` 
 
 ## Docs
 - `docs/deploy.md`: deploying to Vercel, step by step
+- `docs/whatsapp-intake.md`: WhatsApp notifications into the Inbox (Milestone 22): setup, filters, privacy, security, what is untested
 - `docs/android-call-recordings.md`: free Android call-recording flow (India-friendly), setup, limits, what is untested
 - `docs/call-recording.md`: on-device call recording: privacy, measured speed, security design, what is untested
 - `docs/accessibility.md`: accessibility standard, audit results, and what is still untested

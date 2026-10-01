@@ -68,6 +68,9 @@ Notes:
 - The service worker (`public/sw.js`) shows `public/offline.html` when a page cannot load, and receives things shared from the Android share sheet. A shared recording is held briefly in the browser's own storage until the page picks it up (or for at most a day), and is never sent to a server. If you edit `offline.html`, bump the cache number at the top of `sw.js`.
 - Desktop reminders come from the Chrome extension. Phone **push** reminders would need a push server and are not built yet.
 
+## Phone message intake (Milestone 22)
+Run `supabase/milestone22-intake.sql` once in the Supabase SQL Editor (it is also in `schema.sql`). Nothing else changes: no new environment variable and no secret key. The phone calls `https://YOUR-URL/api/intake` with a private token created in **Settings → Phone messages**. `npm run preflight` checks the new table and function. See `docs/whatsapp-intake.md`.
+
 ## Privacy and users' data
 - Users can export their data and delete their account themselves in **Settings → Your data**.
 - Deleting an account removes everything: all tables cascade from the user. Revoking Google Calendar access is attempted first.

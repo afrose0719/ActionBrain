@@ -12,6 +12,8 @@ import { formatEmail, parseEml } from "@/lib/import/email";
 import { chatNameFromFilename, formatWhatsApp, parseWhatsApp } from "@/lib/import/whatsapp";
 import type { InboxItem, Suggestion } from "@/lib/types";
 
+const BATCH_LIMIT = 10; // one click analyzes at most this many, so a busy phone cannot spend your AI budget in one go
+
 const SOURCES = ["email", "whatsapp", "meeting", "browser", "call", "note"];
 
 // Android's Share menu opens /inbox?title=...&text=...&url=... (see src/app/manifest.ts "share_target").
@@ -25,6 +27,7 @@ export default function InboxPage() {
   const [needsKey, setNeedsKey] = useState(false);
   const [notice, setNotice] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [batching, setBatching] = useState(false);
 
   // add form
   const [content, setContent] = useState(shared ?? "");
@@ -64,7 +67,7 @@ export default function InboxPage() {
     await load();
   }
 
-  async function analyze(item: InboxItem) {
+  async function analyze(item: InboxItem): Promise<boolean> {
     setBusyId(item.id);
     setError("");
     setNotice("");
@@ -78,7 +81,8 @@ export default function InboxPage() {
       }),
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
+    const ok = res.ok;
+    if (!ok) {
       setNeedsKey(body.code === "NO_KEY");
       setError(body.error ?? "Analysis failed.");
     } else {
@@ -114,6 +118,16 @@ export default function InboxPage() {
       }
     }
     setBusyId(null);
+    return ok;
+  }
+
+  // Messages that arrived from the phone wait here, unread by the AI, until you choose to analyze them (each one uses your own AI key).
+  async function analyzeNew() {
+    setBatching(true);
+    for (const item of newItems.slice(0, BATCH_LIMIT)) {
+      if (!(await analyze(item))) break; // stop at the first failure (for example, no key saved)
+    }
+    setBatching(false);
   }
 
   // Import a WhatsApp chat export (.txt) or an email (.eml). It only fills the form: you review it before saving.
@@ -205,6 +219,8 @@ export default function InboxPage() {
     else load();
   }
 
+  const newItems = items.filter((i) => i.status === "new");
+
   return (
     <>
       <div className="page-header">
@@ -285,6 +301,19 @@ export default function InboxPage() {
             Review commitments
           </Link>
         </p>
+      )}
+
+      {newItems.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-canvas px-4 py-3">
+          <p>
+            <strong>{newItems.length}</strong> message{newItems.length > 1 ? "s" : ""} waiting to be analyzed.
+            {newItems.length > BATCH_LIMIT && <span className="text-ink-muted"> {BATCH_LIMIT} at a time.</span>}
+          </p>
+          <button type="button" className="btn-secondary btn-sm" disabled={batching || busyId !== null} onClick={analyzeNew}>
+            <Sparkles size={14} />
+            {batching ? "Analyzing..." : `Analyze ${Math.min(newItems.length, BATCH_LIMIT)} with AI`}
+          </button>
+        </div>
       )}
 
       {loading ? (

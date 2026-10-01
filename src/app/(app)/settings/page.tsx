@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
 import { useInstall } from "@/lib/use-install";
 import { DataControls } from "@/components/data-controls";
+import { PhoneIntake } from "@/components/phone-intake";
 import { PROVIDERS, type ProviderId } from "@/lib/ai/provider";
 
 type Saved = { provider: ProviderId; model: string | null; key_hint: string | null } | null;
@@ -223,6 +224,8 @@ export default function SettingsPage() {
           )}
         </div>
       </section>
+
+      <PhoneIntake />
 
       <section className="card">
         <div className="flex items-center gap-2 border-b border-line px-5 py-4">
