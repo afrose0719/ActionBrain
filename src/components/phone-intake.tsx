@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Copy, MessageSquare, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import { Battery, Bell, Check, Copy, MessageSquare, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { generateToken, hashToken, parseSenderList } from "@/lib/intake";
+import { getAndroidBridge, parseAndroidStatus, type AndroidBridge, type AndroidStatus } from "@/lib/android-bridge";
 
 type Intake = {
   token_hint: string | null;
@@ -51,6 +52,10 @@ export function PhoneIntake() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // Inside the ActionBrain Android app the page can hand the token to the app itself. In a normal browser this is null.
+  // (read after the page has loaded, so the server's HTML and the app's first render are identical)
+  const [bridge, setBridge] = useState<AndroidBridge | null>(null);
+  const [phone, setPhone] = useState<AndroidStatus | null>(null);
 
   const load = useCallback(async () => {
     const { data, error } = await createClient().from("intake_settings").select(COLUMNS).maybeSingle();
@@ -66,9 +71,19 @@ export function PhoneIntake() {
 
   useEffect(() => {
     (async () => {
+      setBridge(getAndroidBridge());
       await load();
     })();
   }, [load]);
+
+  // keep the "this phone" status fresh while the page is open (you switch on notification access in another screen and come back)
+  useEffect(() => {
+    if (!bridge || !intake) return;
+    const read = () => setPhone(parseAndroidStatus(bridge.status()));
+    read();
+    const timer = setInterval(read, 2000);
+    return () => clearInterval(timer);
+  }, [bridge, intake]);
 
   async function createToken(replacing: boolean) {
     if (replacing && !confirm("Create a new token? The old one stops working immediately, so update your phone automation.")) return;
@@ -85,7 +100,17 @@ export function PhoneIntake() {
     const { error } = replacing ? await table.update(fields).not("user_id", "is", null) : await table.insert(fields);
     setBusy(false);
     if (error) return setError(error.message);
-    setToken(fresh);
+    if (bridge) {
+      // the app keeps the token itself, so there is nothing to copy
+      const stored = bridge.saveIntake(`${window.location.origin}/api/intake`, fresh);
+      if (stored) setNotice("This phone is connected. You do not need to copy anything.");
+      else {
+        setToken(fresh);
+        setError("The app did not accept the token. Copy it below and use it in your own automation, or update the app.");
+      }
+    } else {
+      setToken(fresh);
+    }
     await load();
   }
 
@@ -110,8 +135,10 @@ export function PhoneIntake() {
     const { error } = await createClient().from("intake_settings").delete().not("user_id", "is", null);
     setBusy(false);
     if (error) return setError(error.message);
+    bridge?.clearIntake();
     setToken(null);
     setIntake(null);
+    setPhone(null);
     setUnderstood(false);
   }
 
@@ -125,8 +152,14 @@ export function PhoneIntake() {
       </div>
       <div className="card-body grid gap-4">
         <p className="text-ink-muted">
-          An automation app on your Android phone can send each WhatsApp notification here. They arrive in your <strong>Inbox</strong>; nothing becomes a task until you approve it.
-          Setup steps: <code>docs/whatsapp-intake.md</code>.
+          {bridge ? (
+            <>This phone can send each WhatsApp message to your <strong>Inbox</strong> by itself, using the ActionBrain app. Nothing becomes a task until you approve it.</>
+          ) : (
+            <>
+              Your Android phone can send each WhatsApp notification here, using the <strong>ActionBrain Android app</strong> (<code>docs/android-app.md</code>) or an automation app
+              (<code>docs/whatsapp-intake.md</code>). Messages arrive in your <strong>Inbox</strong>; nothing becomes a task until you approve it.
+            </>
+          )}
         </p>
 
         {error && <p role="alert" className="alert-error">{error}</p>}
@@ -150,7 +183,7 @@ export function PhoneIntake() {
           </>
         ) : (
           <>
-            {token && (
+            {token && !bridge && (
               <div className="grid gap-3 rounded-md border border-brand-600/30 bg-canvas p-4" role="status">
                 <p className="font-medium">Copy these now. The token is shown only once; ActionBrain keeps just a scrambled copy.</p>
                 <CopyBox label="Address (POST)" value={address} />
@@ -177,6 +210,51 @@ export function PhoneIntake() {
                 </button>
               </div>
             </div>
+
+            {bridge && (
+              <div className="grid gap-3 rounded-md border border-line bg-canvas p-4">
+                <p className="font-medium">This phone</p>
+                {!phone ? (
+                  <p className="text-ink-muted">Reading the app&rsquo;s status...</p>
+                ) : (
+                  <>
+                    <ul className="grid gap-1.5">
+                      <li className="flex items-center gap-2">
+                        {phone.configured ? <Check size={16} className="text-success-600" /> : <span aria-hidden="true" className="inline-block h-4 w-4 text-center text-danger-600">!</span>}
+                        {phone.configured ? "Connected to your ActionBrain." : "Not connected yet. Press New token above to connect this phone."}
+                      </li>
+                      <li className="flex items-center gap-2">
+                        {phone.listening ? <Check size={16} className="text-success-600" /> : <span aria-hidden="true" className="inline-block h-4 w-4 text-center text-danger-600">!</span>}
+                        {phone.listening ? "Notification access is on." : "Notification access is off, so no WhatsApp messages can be read yet."}
+                      </li>
+                      <li className="text-ink-muted">
+                        Sent {phone.sent} · failed {phone.failed}
+                        {phone.lastAt ? <> · last {new Date(phone.lastAt).toLocaleString()} ({phone.lastResult})</> : null}
+                      </li>
+                    </ul>
+                    <div className="flex flex-wrap gap-2">
+                      {!phone.listening && (
+                        <button type="button" className="btn-primary btn-sm" onClick={() => bridge.openNotificationAccess()}>
+                          <Bell size={14} />
+                          Allow notification access
+                        </button>
+                      )}
+                      <button type="button" className="btn-secondary btn-sm" onClick={() => bridge.openBatterySettings()}>
+                        <Battery size={14} />
+                        Battery settings
+                      </button>
+                      <button type="button" className="btn-secondary btn-sm" onClick={() => bridge.openAppInfo()}>
+                        App settings
+                      </button>
+                    </div>
+                    <p className="text-xs text-ink-muted">
+                      If Android will not let you switch on notification access, open <strong>App settings</strong>, tap the three dots, and choose <strong>Allow restricted settings</strong>. Then try again.
+                      On phones that save battery aggressively, set ActionBrain to &ldquo;Unrestricted&rdquo; in Battery settings.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
 
             <form onSubmit={saveFilters} className="grid gap-4">
               <label className="flex items-start gap-2">

@@ -7,6 +7,8 @@ An automation app on your **Android** phone watches for WhatsApp notifications a
 - Tools that log into a personal number in the background (WhatsApp Web libraries) break WhatsApp's terms and can get the number **banned**. ActionBrain does not do that.
 - Reading **your own phone's notifications** with an app you install and permit is an Android feature. ActionBrain never touches WhatsApp's servers.
 
+> **Easiest way:** the ActionBrain Android app does all of this by itself, with no automation app and no copy-paste. See `android-app.md`. The rest of this page is for the address itself, and for using an automation app instead.
+
 ## What you need
 1. ActionBrain **deployed** (the phone must reach a public address). See `deploy.md`.
 2. The Supabase SQL for this milestone run once: `supabase/milestone22-intake.sql`.
