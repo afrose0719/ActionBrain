@@ -24,7 +24,7 @@ The app is a file (`app-debug.apk`), not a Play Store app. It is for your own us
 1. Build it (below), or get the APK from whoever built it.
 2. **With a USB cable** (what I used): on the phone, Settings → About phone → tap **Build number** 7 times, then Developer options → **USB debugging** on. Connect, accept the prompt, then on the PC:
    `adb install -r android/app/build/outputs/apk/debug/app-debug.apk`
-   Many Samsung phones also show an **"Install via USB"** prompt on the phone. Accept it (and turn on "Install via USB" in Developer options if it is there).
+   Some brands (for example Xiaomi) have an **"Install via USB"** switch in Developer options; Samsung does not. On Samsung the usual blockers are **Auto Blocker** and **Google Play Protect** (see below). Keep the phone **unlocked and awake** during the install (Developer options → **Stay awake**), because a locked or sleeping phone can make `adb` stall.
 3. **Or copy the file to the phone** and open it. Allow "Install unknown apps" for that file manager when asked.
 4. Samsung's **Auto Blocker** (Settings → Security and privacy) blocks installs from outside the store and from USB. If the install fails or never finishes, switch it off temporarily.
 
