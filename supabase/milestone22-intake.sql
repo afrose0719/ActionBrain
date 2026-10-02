@@ -36,7 +36,7 @@ create policy "Users update own intake" on public.intake_settings for update usi
 create policy "Users delete own intake" on public.intake_settings for delete using (auth.uid() = user_id);
 
 -- Returns one of: 'stored', 'duplicate', 'ignored', 'limit', 'invalid'. Never reveals anything else.
-create or replace function public.ingest_message(p_token text, p_sender text, p_text text, p_group text default null)
+create or replace function public.ingest_message(p_token text, p_sender text, p_text text, p_group text default null, p_mine boolean default false)
 returns text
 language plpgsql
 security definer
@@ -84,7 +84,12 @@ begin
   end;
 
   v_ref  := 'WhatsApp from ' || v_sender || case when v_group is null then '' else ' in ' || v_group end;
-  v_body := v_sender || case when v_group is null then '' else ' (in ' || v_group || ')' end || ': ' || v_text;
+  -- p_mine: a message YOU wrote (read from the open chat). p_sender is then the CHAT it was written in, and the line says "You".
+  if coalesce(p_mine, false) then
+    v_body := 'You (' || case when v_group is null then 'to ' || v_sender else 'in ' || v_group end || '): ' || v_text;
+  else
+    v_body := v_sender || case when v_group is null then '' else ' (in ' || v_group || ')' end || ': ' || v_text;
+  end if;
   v_line := '[' || v_stamp || '] ' || v_body;
 
   -- Several messages from the same person within 5 minutes are one conversation: add to the same inbox item, so the AI sees context.
@@ -111,5 +116,5 @@ begin
 end;
 $$;
 
-revoke all on function public.ingest_message(text, text, text, text) from public;
-grant execute on function public.ingest_message(text, text, text, text) to anon, authenticated;
+revoke all on function public.ingest_message(text, text, text, text, boolean) from public;
+grant execute on function public.ingest_message(text, text, text, text, boolean) to anon, authenticated;

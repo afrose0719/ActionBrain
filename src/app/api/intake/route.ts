@@ -29,6 +29,8 @@ export async function POST(request: Request) {
     p_sender: parsed.message.sender,
     p_text: parsed.message.text,
     p_group: parsed.message.group,
+    // sent only when true, so a database that has not had the Milestone 24 SQL yet keeps working for ordinary messages
+    ...(parsed.message.mine ? { p_mine: true } : {}),
   });
   if (error) return Response.json({ error: "Could not save the message." }, { status: 502 });
   if (data === "invalid") return Response.json({ error: "That token is not valid. Create a new one in Settings." }, { status: 401 });

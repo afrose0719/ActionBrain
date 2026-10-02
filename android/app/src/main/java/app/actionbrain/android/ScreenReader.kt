@@ -1,0 +1,190 @@
+package app.actionbrain.android
+
+/**
+ * Works out, from what an open WhatsApp chat shows on screen, which messages are NEW and who wrote them.
+ * Pure Kotlin on purpose (no Android types): the real service copies the screen into [ScreenNode]s and this does the thinking,
+ * so plain unit tests can cover it.
+ *
+ * Privacy rules this code keeps:
+ *  - it only ever looks at three kinds of node: the chat name, message text, and a group member's name. Never the box you type in.
+ *  - it keeps nothing but short-lived in-memory keys, to avoid sending the same message twice.
+ *  - it never sends what was already on screen when you opened the chat, or older messages you scroll back to.
+ *
+ * The ids below are WhatsApp's own names for its screen parts (matched by their ending, so WhatsApp Business works too).
+ * WhatsApp can rename them in an update. If it does, this finds nothing and sends nothing. It never guesses.
+ */
+data class ScreenNode(
+    val id: String?,
+    val className: String?,
+    val text: String?,
+    val left: Int,
+    val top: Int,
+    val right: Int,
+    val bottom: Int,
+    val children: List<ScreenNode> = emptyList(),
+)
+
+/** mine = written by you. For your own messages [chat] is where you wrote it; for others, [sender] is who wrote it. */
+data class ChatMessage(val chat: String, val sender: String, val text: String, val group: String?, val mine: Boolean)
+
+object WhatsAppIds {
+    const val CHAT_NAME = "conversation_contact_name"
+    const val MESSAGE_TEXT = "message_text"
+    const val GROUP_MEMBER = "name_in_group"
+
+    fun matches(node: ScreenNode, name: String): Boolean = node.id?.substringAfter(":id/", "")?.equals(name) == true
+}
+
+class ChatReader {
+    private var chat: String? = null
+    private var previous: List<String> = emptyList()
+    private var groupChat = false
+
+    /** Everything seen on screen in this chat since it was opened. Nothing in here is ever sent twice, or sent at all if it was already there. */
+    private val known = LinkedHashSet<String>()
+
+    /** Forget everything (the user left WhatsApp, or turned the service off). The next chat you open starts from a clean baseline. */
+    @Synchronized
+    fun reset() {
+        chat = null
+        previous = emptyList()
+        groupChat = false
+        known.clear()
+    }
+
+    /**
+     * Reads one look at the screen. Returns only messages that appeared since the previous look at the SAME chat.
+     * The first look at a chat is a baseline: whatever is on screen already counts as old and is not returned.
+     * New messages are found by lining the previous look up against this one (the screen scrolls a little between looks);
+     * if they cannot be lined up (you scrolled far), this look becomes the new baseline and nothing is returned.
+     * Trade-off: an identical message repeated in the same chat session ("ok", "ok") is sent only the first time.
+     */
+    @Synchronized
+    fun read(root: ScreenNode, screenWidth: Int): List<ChatMessage> {
+        val title = findAll(root) { WhatsAppIds.matches(it, WhatsAppIds.CHAT_NAME) }.firstOrNull()?.text?.trim().orEmpty()
+        if (title.isEmpty()) return emptyList() // not inside a chat (the chat list, settings...): read nothing
+
+        val nodes = findAll(root) { WhatsAppIds.matches(it, WhatsAppIds.MESSAGE_TEXT) }.filter { !it.text.isNullOrBlank() }.sortedBy { it.top }
+        if (title != chat) {
+            chat = title
+            groupChat = false
+            previous = emptyList()
+            known.clear()
+        }
+        if (findAll(root) { WhatsAppIds.matches(it, WhatsAppIds.GROUP_MEMBER) }.isNotEmpty()) groupChat = true
+
+        val messages = nodes.map { toMessage(it, root, title, screenWidth) }
+        val keys = messages.map(::keyOf)
+
+        val fresh = freshSince(messages, keys).filter { known.add(keyOf(it)) } // add() is false for a key already known
+        known.addAll(keys)
+        while (known.size > MAX_KNOWN) known.remove(known.first())
+        previous = keys
+        return fresh
+    }
+
+    /** The messages after the point where the previous look lines up with this one. */
+    private fun freshSince(messages: List<ChatMessage>, keys: List<String>): List<ChatMessage> {
+        if (previous.isEmpty()) return emptyList()
+        // the bottom of the previous look, as long as possible (the top of the screen scrolls away between looks), at least 2 messages if there were 2
+        for (k in previous.size downTo minOf(2, previous.size)) {
+            val tail = previous.takeLast(k)
+            var end = keys.size - 1
+            while (end >= k - 1) {
+                if (keys.subList(end - k + 1, end + 1) == tail) return messages.subList(end + 1, messages.size)
+                end--
+            }
+        }
+        return emptyList()
+    }
+
+    private fun toMessage(node: ScreenNode, root: ScreenNode, title: String, width: Int): ChatMessage {
+        val text = node.text!!.trim()
+        val mine = isOutgoing(node, width)
+        val group = if (groupChat) title else null
+        val sender = when {
+            mine -> "You"
+            groupChat -> memberName(node, root) ?: "Unknown"
+            else -> title
+        }
+        return ChatMessage(chat = title, sender = sender, text = text, group = group, mine = mine)
+    }
+
+    private fun keyOf(m: ChatMessage) = "${m.mine}|${m.sender}|${m.text}"
+
+    /**
+     * The name shown above a group member's message: looked for in the message's own row, climbing outwards a few levels.
+     * It stops the moment the container holds more than one message, so it can never pick up a name that belongs to another row.
+     */
+    private fun memberName(message: ScreenNode, root: ScreenNode): String? {
+        var ancestor: ScreenNode? = parentOf(root, message)
+        repeat(4) {
+            val a = ancestor ?: return null
+            if (findAll(a) { WhatsAppIds.matches(it, WhatsAppIds.MESSAGE_TEXT) }.size > 1) return null
+            val names = findAll(a) { WhatsAppIds.matches(it, WhatsAppIds.GROUP_MEMBER) }.mapNotNull { it.text?.trim()?.takeIf { t -> t.isNotEmpty() } }
+            if (names.size == 1) return names.single()
+            ancestor = parentOf(root, a)
+        }
+        return null // no name found: the caller says "Unknown"
+    }
+
+    companion object {
+        private const val MAX_KNOWN = 500
+
+        /**
+         * Your own messages sit against the right edge, other people's against the left. This is a rule of thumb from where the
+         * text is on screen, so it can be wrong for very long messages. The numbers are the first thing to tune on a real phone.
+         */
+        fun isOutgoing(node: ScreenNode, width: Int): Boolean {
+            if (width <= 0) return false
+            return node.left > width * 0.30 || (node.right >= width * 0.88 && node.left > width * 0.15)
+        }
+
+        fun findAll(root: ScreenNode, predicate: (ScreenNode) -> Boolean): List<ScreenNode> {
+            val out = ArrayList<ScreenNode>()
+            fun walk(n: ScreenNode) {
+                if (predicate(n)) out += n
+                n.children.forEach(::walk)
+            }
+            walk(root)
+            return out
+        }
+
+        fun parentOf(root: ScreenNode, target: ScreenNode): ScreenNode? {
+            for (child in root.children) {
+                if (child === target) return root
+                parentOf(child, target)?.let { return it }
+            }
+            return null
+        }
+    }
+}
+
+/**
+ * A picture of the screen's STRUCTURE for fixing problems: class, id, position and how long the text is, never the text itself.
+ * You can send it to the developer without sending a single message.
+ */
+object ScreenStructure {
+    fun dump(root: ScreenNode, maxLines: Int = 120): String {
+        val lines = ArrayList<String>()
+        fun walk(n: ScreenNode, depth: Int) {
+            if (lines.size >= maxLines) return
+            val text = n.text?.let { " text=${it.length} chars" } ?: ""
+            lines += "  ".repeat(depth) + (n.className?.substringAfterLast('.') ?: "?") + (n.id?.let { " #" + it.substringAfter(":id/") } ?: "") +
+                " [${n.left},${n.top},${n.right},${n.bottom}]$text"
+            n.children.forEach { walk(it, depth + 1) }
+        }
+        walk(root, 0)
+        if (lines.size >= maxLines) lines += "... (cut)"
+        return lines.joinToString("\n")
+    }
+}
+
+/** What the website's Settings page can ask to see. Set by the screen service, read by the bridge. In memory only. */
+object ScreenStatus {
+    @Volatile
+    var lastStructure: String = ""
+
+    @Volatile
+    var lastSeenAt: Long = 0
+}

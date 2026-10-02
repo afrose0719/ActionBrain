@@ -11,12 +11,14 @@ const fullBridge = () => ({
   saveIntake: () => true,
   clearIntake: () => {},
   takeSharedFile: () => "",
+  openScreenReadingSettings: () => {},
+  screenStructure: () => "",
   status: () => "{}",
   openNotificationAccess: () => {},
   openBatterySettings: () => {},
   openAppInfo: () => {},
 });
-const goodStatus = { app: true, version: "0.1.0", configured: true, listening: false, sent: 3, failed: 1, lastAt: 1790000000000, lastResult: "stored" };
+const goodStatus = { app: true, version: "0.1.0", configured: true, listening: false, screenAvailable: true, screenOn: false, sent: 3, failed: 1, lastAt: 1790000000000, lastResult: "stored" };
 
 // ---- the bridge object ----
 test("in an ordinary browser there is no bridge", () => {
@@ -43,6 +45,8 @@ test("a good status is read", () => {
     version: "0.1.0",
     configured: true,
     listening: false,
+    screenAvailable: true,
+    screenOn: false,
     sent: 3,
     failed: 1,
     lastAt: 1790000000000,
@@ -64,6 +68,8 @@ test("anything that is not exactly the expected shape is refused", () => {
     JSON.stringify({ ...goodStatus, version: 1 }),
     JSON.stringify({ ...goodStatus, configured: "yes" }),
     JSON.stringify({ ...goodStatus, listening: 1 }),
+    JSON.stringify({ ...goodStatus, screenAvailable: "yes" }),
+    JSON.stringify({ ...goodStatus, screenOn: 1 }),
     JSON.stringify({ ...goodStatus, sent: -1 }),
     JSON.stringify({ ...goodStatus, failed: "2" }),
     JSON.stringify({ ...goodStatus, lastAt: null }),
@@ -116,7 +122,7 @@ test("the app and the website use the same token format", () => {
 
 test("every method the website calls exists in the app's bridge, and nothing extra is exposed", () => {
   const exposed = [...kotlinBridge.matchAll(/@JavascriptInterface\s+fun (\w+)/g)].map((m) => m[1]).sort();
-  assert.deepEqual(exposed, ["clearIntake", "isApp", "openAppInfo", "openBatterySettings", "openNotificationAccess", "saveIntake", "status", "takeSharedFile"]);
+  assert.deepEqual(exposed, ["clearIntake", "isApp", "openAppInfo", "openBatterySettings", "openNotificationAccess", "openScreenReadingSettings", "saveIntake", "screenStructure", "status", "takeSharedFile"]);
   const website = Object.keys(fullBridge()).sort();
   assert.deepEqual(exposed, website);
 });
@@ -153,4 +159,51 @@ test("the website the app opens is the deployed one, and the app keeps to that o
   const activity = read("android/app/src/main/java/app/actionbrain/android/MainActivity.kt");
   assert.ok(activity.includes('uri.scheme == "https" && uri.host == appHost'));
   assert.ok(activity.includes("request.origin.host != appHost"));
+});
+
+// ---- live chat reading (the optional Accessibility service) ----
+const fullManifest = read("android/app/src/full/AndroidManifest.xml");
+const serviceConfig = read("android/app/src/full/res/xml/screen_service_config.xml");
+const screenService = read("android/app/src/full/java/app/actionbrain/android/WhatsAppScreenService.kt");
+
+test("live chat reading exists only in the 'full' build, never in the main manifest the Play build uses", () => {
+  assert.ok(!manifest.includes("ACCESSIBILITY"), "main manifest must not mention accessibility");
+  assert.ok(fullManifest.includes('android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"'));
+  assert.ok(gradle.includes('create("full")') && gradle.includes('create("play")'));
+  assert.ok(gradle.includes('buildConfigField("boolean", "SCREEN_READING", "true")'));
+  assert.ok(gradle.includes('buildConfigField("boolean", "SCREEN_READING", "false")'));
+});
+
+test("the service is read-only and scoped to WhatsApp, by Android's own configuration", () => {
+  assert.ok(serviceConfig.includes('android:packageNames="com.whatsapp,com.whatsapp.w4b"'));
+  assert.ok(serviceConfig.includes('android:canRetrieveWindowContent="true"'));
+  for (const power of ["canPerformGestures", "canTakeScreenshot", "flagRequestTouchExplorationMode", "typeViewTextChanged", "typeAllMask", "canRequestFilterKeyEvents", "flagRequestFilterKeyEvents", "typeViewClicked"]) {
+    assert.ok(!serviceConfig.replace(/<!--[\s\S]*?-->/g, "").includes(power), `must not use ${power}`);
+  }
+});
+
+test("the service reads message text only for the three named WhatsApp parts, and never acts on the screen", () => {
+  assert.ok(screenService.includes("val wanted = id != null &&"));
+  for (const id of ["CHAT_NAME", "MESSAGE_TEXT", "GROUP_MEMBER"]) assert.ok(screenService.includes(`WhatsAppIds.${id}`), id);
+  for (const action of ["performAction", "dispatchGesture", "ACTION_CLICK", "ACTION_SET_TEXT", "performGlobalAction", "takeScreenshot"]) {
+    assert.ok(!screenService.includes(action), `must not call ${action}`);
+  }
+  assert.ok(screenService.includes("PACKAGES"));
+});
+
+test("the consent dialog is native, comes before Android's settings open, and says what is read and what happens to it", () => {
+  assert.ok(kotlinBridge.includes("AlertDialog.Builder(activity)"));
+  const open = kotlinBridge.slice(kotlinBridge.indexOf("fun openScreenReadingSettings"));
+  assert.ok(open.indexOf("AlertDialog.Builder") < open.indexOf("ACTION_ACCESSIBILITY_SETTINGS"));
+  assert.ok(open.includes("setPositiveButton") && open.includes("setNegativeButton"));
+  const strings = read("android/app/src/main/res/values/strings.xml");
+  for (const phrase of ["What it reads", "does not read what you type", "your own ActionBrain account", "have not agreed", "switch it off at any time"]) {
+    assert.ok(strings.includes(phrase), phrase);
+  }
+});
+
+test("the website only offers live chat reading when the app says it has it", () => {
+  const panel = read("src/components/phone-intake.tsx");
+  assert.ok(panel.includes("phone.screenAvailable && !phone.screenOn"));
+  assert.ok(panel.includes("openScreenReadingSettings()"));
 });

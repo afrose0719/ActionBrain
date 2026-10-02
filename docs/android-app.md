@@ -14,7 +14,7 @@ A small native Android app (Kotlin, no libraries) that shows your ActionBrain we
 - It **cannot hear phone calls**. Android does not give ordinary apps both sides of a cellular call. (Call detection and your phone's own call recordings are the planned next step, Milestone 24.)
 - It sees only the notification **preview**: very long messages arrive cut off, and a message you read before the notification appeared will not be seen.
 - There is **no offline queue**: if the phone has no internet for about 12 seconds after a message, that message is counted as failed and is not retried later.
-- **While you are looking at a chat, WhatsApp posts no notification for it**, so messages that arrive during a live conversation are not captured by this method. Export the chat afterwards (see above).
+- **While you are looking at a chat, WhatsApp posts no notification for it**, so messages that arrive during a live conversation are not captured by this method. Export the chat afterwards (see above), or turn on **Live chat reading** (below).
 - Android shows the **latest** message of a notification. If several arrive within a fraction of a second, an earlier one can be missed.
 
 ## Permissions
@@ -24,7 +24,7 @@ Only **Internet** and **Microphone** (asked at the moment you press Record). It 
 The app is a file (`app-debug.apk`), not a Play Store app. It is for your own use.
 1. Build it (below), or get the APK from whoever built it.
 2. **With a USB cable** (what I used): on the phone, Settings → About phone → tap **Build number** 7 times, then Developer options → **USB debugging** on. Connect, accept the prompt, then on the PC:
-   `adb install -r android/app/build/outputs/apk/debug/app-debug.apk`
+   `adb install -r android/app/build/outputs/apk/full/debug/app-full-debug.apk`
    Some brands (for example Xiaomi) have an **"Install via USB"** switch in Developer options; Samsung does not. On Samsung the usual blockers are **Auto Blocker** and **Google Play Protect** (see below). Keep the phone **unlocked and awake** during the install (Developer options → **Stay awake**), because a locked or sleeping phone can make `adb` stall.
 3. **Or copy the file to the phone** and open it. Allow "Install unknown apps" for that file manager when asked.
 4. Samsung's **Auto Blocker** (Settings → Security and privacy) blocks installs from outside the store and from USB. If the install fails or never finishes, switch it off temporarily.
@@ -42,13 +42,40 @@ Needs: Java 17+ (JDK 21 works), the Android SDK (platform 36, build-tools 36.0.0
 ```bash
 cd android
 echo "sdk.dir=C:/path/to/Android/Sdk" > local.properties      # forward slashes, even on Windows
-./gradlew testDebugUnitTest assembleDebug                      # APK: app/build/outputs/apk/debug/app-debug.apk
-./gradlew assembleDebug -PactionbrainUrl=https://your-site.vercel.app   # point it at your own deployment
+./gradlew testFullDebugUnitTest assembleFullDebug assemblePlayDebug
+#   full: app/build/outputs/apk/full/debug/app-full-debug.apk  (with live chat reading, for your own phone)
+#   play: app/build/outputs/apk/play/debug/app-play-debug.apk  (without it, for the Play Store)
+./gradlew assembleFullDebug -PactionbrainUrl=https://your-site.vercel.app   # point it at your own deployment
 ```
 The app opens `actionbrainUrl` (default: the deployed site) and refuses to build with anything that is not `https://`.
 
 **Windows note:** Gradle downloads its own copy of `aapt2.exe`, which Windows "Application Control" or Smart App Control may block. Use the Google-signed one from the SDK instead, in your **user** Gradle file (`~/.gradle/gradle.properties`):
 `android.aapt2FromMavenOverride=C:/path/to/Android/Sdk/build-tools/36.0.0/aapt2.exe`
+
+## Live chat reading (optional, "full" build only)
+**The problem it solves.** While you are looking at a WhatsApp chat, WhatsApp posts no notification for it, so the notification method never sees a conversation you are in the middle of. Live chat reading reads the open chat's messages from the screen and sends the new ones to your Inbox, **including your own** ("I'll send it tomorrow"), marked as yours.
+
+**How it works.** It is an Android **Accessibility service**, switched on by you in Android Settings → Accessibility after you agree in the app's own dialog (Settings → Phone messages → *Turn on live chat reading*).
+- Android only delivers events from WhatsApp and WhatsApp Business (`res/xml/screen_service_config.xml`), and the code checks again.
+- **Read-only.** It has no permission to click, type, swipe or take screenshots (a test fails if that changes).
+- The only text it ever copies is the **chat name, message text, and a group member's name**. Never the box you type in, never another app.
+- It sends **only new messages**: what was on screen when you opened the chat, and older messages you scroll back to, are never sent. A message is sent at most once per chat session (so an identical "ok" repeated later in the same chat is not sent again).
+- Your own messages go in as `You (to Rajesh): ...`, so the AI knows the promise is yours.
+- Nothing is stored on the phone. A few short keys stay in memory to avoid sending the same message twice.
+- **Settings → Phone messages → Show what the app sees** shows the *shape* of WhatsApp's screen (names, positions, text lengths, **no message text**). If reading does not work, send me that and nothing private goes with it.
+
+**Two builds.** `full` contains this service (for your own phone). `play` does not, so it can go to the Play Store while Google reviews the declaration. Same app, one switch (`SCREEN_READING` in `app/build.gradle.kts`).
+
+**Google Play.** The Play policy for the Accessibility API (read from Google's policy page; re-check it in Play Console before you submit) says an app that is not a disability tool may use it only with:
+- a **prominent in-app disclosure and explicit consent**, which cannot rely on the privacy policy alone. This app shows its own dialog before Android's settings open;
+- the **Permission Declaration Form, with Google's approval**;
+- **no autonomous actions** on the device. This service only reads, and you approve every task, but whether Google sees it that way is **their decision**. "Trusted app" is not an exemption, and a misleading or undeclared use can get the app or developer account suspended.
+Plan: submit the `play` build first (notifications and chat export), then add the declaration for `full`'s service when you are ready.
+
+**What can go wrong (tested only with unit tests, not on your phone yet):**
+- It finds WhatsApp's screen parts by their internal names (`conversation_contact_name`, `message_text`, `name_in_group`). WhatsApp can rename them in an update. If it does, the service finds nothing and **sends nothing**; it never guesses.
+- Telling *your* messages from other people's uses where the text sits on screen (right edge = you). That is a rule of thumb and can be wrong for very long messages. The thresholds are the first thing to tune on a real phone.
+- Group member names are read from the same message row. If WhatsApp changes the layout, the sender becomes "Unknown", never another member's name.
 
 ## Security design
 - **One website.** The WebView only stays on your site (`https` and the exact host). Every other link opens in the phone's browser, never inside the app, so no other page can reach the bridge.
@@ -60,7 +87,7 @@ The app opens `actionbrainUrl` (default: the deployed site) and refuses to build
 - This is a **debug-signed** build. Fine for your own phone. Debug keys differ per computer, so an APK built on another machine cannot update this install: uninstall first (you will create a new token).
 
 ## Tests
-- **Kotlin unit tests** (`android/app/src/test`, 9 tests, run with `./gradlew testDebugUnitTest`): token format, the "only your own address" rule, JSON escaping (including text that tries to break out of the JSON), length caps, duplicate suppression. Breaking the token rule on purpose makes one fail.
+- **Kotlin unit tests** (`android/app/src/test`, 34 tests, run with `./gradlew testFullDebugUnitTest`): token format, the "only your own address" rule, JSON escaping (including text that tries to break out of the JSON), length caps, duplicate suppression, the shared-chat hand-off, and the live-reading logic (`ScreenReaderTest`: baseline, new messages only, scrolling around, switching chats, groups, who wrote it, never reading the typing box, the structure dump containing no message text). Breaking the token rule on purpose makes one fail.
 - **TypeScript tests** (`tests/android-bridge.test.mts`, 12 tests): the website's bridge handling, and checks that the Kotlin and TypeScript sides agree (token format, bridge method list, address, permissions, locked-down manifest, only WhatsApp read).
 
 ## What was tested, and what was not

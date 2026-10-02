@@ -9,6 +9,10 @@ export type AndroidBridge = {
   clearIntake(): void;
   /** A chat export shared to the app: JSON text, see parseSharedFile. "" when nothing is waiting. Reading it clears it. */
   takeSharedFile(): string;
+  /** Shows the app's own consent dialog, then opens Android's Accessibility settings (only in the "full" app). */
+  openScreenReadingSettings(): void;
+  /** What the reading service sees, as structure only (no message text). "" if nothing yet. */
+  screenStructure(): string;
   /** JSON text, see parseAndroidStatus. */
   status(): string;
   openNotificationAccess(): void;
@@ -22,6 +26,10 @@ export type AndroidStatus = {
   configured: boolean;
   /** Notification access is switched on for ActionBrain in Android's settings. */
   listening: boolean;
+  /** This build of the app contains live chat reading (the "full" build, not the Play one). */
+  screenAvailable: boolean;
+  /** Live chat reading is switched on in Android's Accessibility settings. */
+  screenOn: boolean;
   sent: number;
   failed: number;
   /** Milliseconds since 1970, 0 if nothing yet. */
@@ -29,7 +37,7 @@ export type AndroidStatus = {
   lastResult: string;
 };
 
-const METHODS = ["isApp", "saveIntake", "clearIntake", "takeSharedFile", "status", "openNotificationAccess", "openBatterySettings", "openAppInfo"] as const;
+const METHODS = ["isApp", "saveIntake", "clearIntake", "takeSharedFile", "openScreenReadingSettings", "screenStructure", "status", "openNotificationAccess", "openBatterySettings", "openAppInfo"] as const;
 
 /** The app's bridge, or null in a normal browser (or if something else defined a look-alike object). */
 export function getAndroidBridge(host: unknown = typeof window === "undefined" ? undefined : window): AndroidBridge | null {
@@ -55,8 +63,9 @@ export function parseAndroidStatus(json: unknown): AndroidStatus | null {
   const failed = count(d.failed);
   const lastAt = count(d.lastAt);
   if (d.app !== true || typeof d.version !== "string" || typeof d.configured !== "boolean" || typeof d.listening !== "boolean") return null;
+  if (typeof d.screenAvailable !== "boolean" || typeof d.screenOn !== "boolean") return null;
   if (sent === null || failed === null || lastAt === null || typeof d.lastResult !== "string") return null;
-  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120) };
+  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, screenAvailable: d.screenAvailable, screenOn: d.screenOn, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120) };
 }
 
 export type SharedFile = { ok: true; name: string; text: string } | { ok: false; error: string };

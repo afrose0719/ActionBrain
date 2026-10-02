@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Battery, Bell, Check, Copy, MessageSquare, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import { Battery, Bell, Check, Copy, Eye, MessageSquare, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { generateToken, hashToken, parseSenderList } from "@/lib/intake";
 import { getAndroidBridge, parseAndroidStatus, type AndroidBridge, type AndroidStatus } from "@/lib/android-bridge";
@@ -56,6 +56,7 @@ export function PhoneIntake() {
   // (read after the page has loaded, so the server's HTML and the app's first render are identical)
   const [bridge, setBridge] = useState<AndroidBridge | null>(null);
   const [phone, setPhone] = useState<AndroidStatus | null>(null);
+  const [structure, setStructure] = useState("");
 
   const load = useCallback(async () => {
     const { data, error } = await createClient().from("intake_settings").select(COLUMNS).maybeSingle();
@@ -227,6 +228,14 @@ export function PhoneIntake() {
                         {phone.listening ? <Check size={16} className="text-success-600" /> : <span aria-hidden="true" className="inline-block h-4 w-4 text-center text-danger-600">!</span>}
                         {phone.listening ? "Notification access is on." : "Notification access is off, so no WhatsApp messages can be read yet."}
                       </li>
+                      {phone.screenAvailable && (
+                        <li className="flex items-center gap-2">
+                          {phone.screenOn ? <Check size={16} className="text-success-600" /> : <span aria-hidden="true" className="inline-block h-4 w-4 text-center text-ink-subtle">–</span>}
+                          {phone.screenOn
+                            ? "Live chat reading is on: messages in a WhatsApp chat you have open are captured."
+                            : "Live chat reading is off (optional). Without it, messages are captured only while you are NOT looking at that chat."}
+                        </li>
+                      )}
                       <li className="text-ink-muted">
                         Sent {phone.sent} · failed {phone.failed}
                         {phone.lastAt ? <> · last {new Date(phone.lastAt).toLocaleString()} ({phone.lastResult})</> : null}
@@ -239,6 +248,18 @@ export function PhoneIntake() {
                           Allow notification access
                         </button>
                       )}
+                      {phone.screenAvailable && !phone.screenOn && (
+                        <button type="button" className="btn-secondary btn-sm" onClick={() => bridge.openScreenReadingSettings()}>
+                          <Eye size={14} />
+                          Turn on live chat reading
+                        </button>
+                      )}
+                      {phone.screenAvailable && phone.screenOn && (
+                        <button type="button" className="btn-secondary btn-sm" onClick={() => setStructure(bridge.screenStructure() || "Nothing seen yet. Open a WhatsApp chat, then come back and press this again.")}>
+                          <Eye size={14} />
+                          Show what the app sees
+                        </button>
+                      )}
                       <button type="button" className="btn-secondary btn-sm" onClick={() => bridge.openBatterySettings()}>
                         <Battery size={14} />
                         Battery settings
@@ -247,6 +268,14 @@ export function PhoneIntake() {
                         App settings
                       </button>
                     </div>
+                    {structure && (
+                      <div>
+                        <p className="mb-1 text-xs text-ink-muted">
+                          The shape of WhatsApp&rsquo;s screen: names, positions and text <em>lengths</em> only. No message text is in it, so it is safe to send to the developer if reading does not work.
+                        </p>
+                        <textarea readOnly aria-label="Shape of WhatsApp's screen" className="input h-56 font-mono text-xs" value={structure} onFocus={(e) => e.target.select()} />
+                      </div>
+                    )}
                     <p className="text-xs text-ink-muted">
                       If Android will not let you switch on notification access, open <strong>App settings</strong>, tap the three dots, and choose <strong>Allow restricted settings</strong>. Then try again.
                       On phones that save battery aggressively, set ActionBrain to &ldquo;Unrestricted&rdquo; in Battery settings.

@@ -31,10 +31,14 @@ object Payload {
         return out.append('"').toString()
     }
 
-    /** group is null for a one-to-one chat. Text is cut to what the server accepts (it cuts again, so this is only a courtesy). */
-    fun message(sender: String, text: String, group: String?): String {
+    /**
+     * group is null for a one-to-one chat. Text is cut to what the server accepts (it cuts again, so this is only a courtesy).
+     * mine = you wrote it; then [sender] is the chat it was written in.
+     */
+    fun message(sender: String, text: String, group: String?, mine: Boolean = false): String {
         val parts = mutableListOf("\"title\":" + quote(sender.take(100)), "\"text\":" + quote(text.take(1500)))
         if (!group.isNullOrBlank()) parts += "\"group\":" + quote(group.take(100))
+        if (mine) parts += "\"mine\":true"
         return "{" + parts.joinToString(",") + "}"
     }
 }

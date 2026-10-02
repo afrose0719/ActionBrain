@@ -48,7 +48,8 @@ export function parseSenderList(text: string): string[] {
   return out;
 }
 
-export type Notification = { sender: string; text: string; group: string | null };
+/** mine = a message YOU wrote (the Android app reads it from the open chat). Then sender is the chat it was written in. */
+export type Notification = { sender: string; text: string; group: string | null; mine: boolean };
 export type NotificationResult = { ok: true; message: Notification } | { ok: false; reason: string };
 
 // WhatsApp posts notifications that are not messages. They carry no task, so they are dropped here.
@@ -67,6 +68,7 @@ export function readNotification(contentType: string | null, body: string): Noti
   let title = "";
   let text = "";
   let group = "";
+  let mine = false;
 
   if ((contentType ?? "").toLowerCase().includes("json")) {
     let data: unknown;
@@ -80,6 +82,7 @@ export function readNotification(contentType: string | null, body: string): Noti
     title = clean(d.title ?? d.sender);
     text = clean(d.text ?? d.message);
     group = clean(d.group);
+    mine = d.mine === true;
   } else {
     const trimmed = clean(body);
     const newline = trimmed.indexOf("\n");
@@ -105,6 +108,6 @@ export function readNotification(contentType: string | null, body: string): Noti
 
   return {
     ok: true,
-    message: { sender: (title || "Unknown").slice(0, MAX_SENDER), text: text.slice(0, MAX_TEXT), group: group ? group.slice(0, MAX_SENDER) : null },
+    message: { sender: (title || "Unknown").slice(0, MAX_SENDER), text: text.slice(0, MAX_TEXT), group: group ? group.slice(0, MAX_SENDER) : null, mine },
   };
 }

@@ -1,6 +1,7 @@
 package app.actionbrain.android
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -38,12 +39,35 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
         return "{\"app\":true,\"version\":" + Payload.quote(BuildConfig.VERSION_NAME) +
             ",\"configured\":" + (tokens.load() != null) +
             ",\"listening\":" + listenerEnabled() +
+            ",\"screenAvailable\":" + BuildConfig.SCREEN_READING +
+            ",\"screenOn\":" + (BuildConfig.SCREEN_READING && screenServiceEnabled()) +
             ",\"sent\":" + stats.sent + ",\"failed\":" + stats.failed + ",\"lastAt\":" + stats.lastAt +
             ",\"lastResult\":" + Payload.quote(stats.lastResult) + "}"
     }
 
     @JavascriptInterface
     fun openNotificationAccess() = launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+
+    /**
+     * Live chat reading. Google Play requires a prominent disclosure and an explicit "agree" BEFORE the Accessibility settings open,
+     * and it must come from the app itself, not the web page, so it is shown here as a native dialog.
+     */
+    @JavascriptInterface
+    fun openScreenReadingSettings() {
+        if (!BuildConfig.SCREEN_READING) return
+        activity.runOnUiThread {
+            AlertDialog.Builder(activity)
+                .setTitle(R.string.screen_consent_title)
+                .setMessage(R.string.screen_consent_body)
+                .setPositiveButton(R.string.screen_consent_agree) { _, _ -> launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                .setNegativeButton(R.string.screen_consent_cancel, null)
+                .show()
+        }
+    }
+
+    /** What the reading service sees, as structure only (names, positions, text LENGTHS, never any message text). For fixing problems. */
+    @JavascriptInterface
+    fun screenStructure(): String = ScreenStatus.lastStructure
 
     /** Phones that "optimise" battery may stop the listener. This opens the list where you can exempt ActionBrain. */
     @JavascriptInterface
@@ -52,6 +76,9 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
     /** Android 13+ blocks sensitive access for apps installed from a file until you allow it here. */
     @JavascriptInterface
     fun openAppInfo() = launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + activity.packageName)))
+
+    private fun screenServiceEnabled(): Boolean =
+        Settings.Secure.getString(activity.contentResolver, "enabled_accessibility_services")?.contains(activity.packageName + "/") == true
 
     private fun listenerEnabled(): Boolean =
         Settings.Secure.getString(activity.contentResolver, "enabled_notification_listeners")?.contains(activity.packageName) == true

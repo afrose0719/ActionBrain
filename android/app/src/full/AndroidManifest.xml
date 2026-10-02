@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          Live chat reading. Only in the "full" build. It exists only after the user agrees in the app's own dialog and then switches it
+          on in Android Settings -> Accessibility. It is declared for WhatsApp's packages only, and it cannot click, type or swipe.
+        -->
+        <service
+            android:name=".WhatsAppScreenService"
+            android:exported="true"
+            android:label="@string/screen_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/screen_service_config" />
+        </service>
+    </application>
+</manifest>
