@@ -27,6 +27,10 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
     @JavascriptInterface
     fun clearIntake() = tokens.clear()
 
+    /** A chat export that was shared to the app, as JSON {"name","text"} or {"error"}. "" if nothing is waiting. Reading it clears it. */
+    @JavascriptInterface
+    fun takeSharedFile(): String = PendingShare.take()
+
     /** Current state as JSON for the Settings page. Contains no token. */
     @JavascriptInterface
     fun status(): String {

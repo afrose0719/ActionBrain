@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.view.ViewGroup
 import android.view.WindowInsets
 import android.webkit.PermissionRequest
@@ -19,6 +20,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.window.OnBackInvokedDispatcher
 import android.widget.FrameLayout
+import java.io.ByteArrayOutputStream
 
 /**
  * The ActionBrain app: your ActionBrain website in a window, plus the phone abilities the website cannot have by itself
@@ -73,8 +75,16 @@ class MainActivity : Activity() {
         if (web.canGoBack()) web.goBack() else moveTaskToBack(true)
     }
 
-    /** Shared text opens the Inbox with it filled in (same as the website's own Share target). Anything else opens the dashboard. */
+    /**
+     * Shared text opens the Inbox with it filled in (same as the website's own Share target).
+     * A shared FILE (WhatsApp: chat, more, Export chat, without media) is read here, held in memory, and handed to the Inbox page once.
+     * Anything else opens the dashboard.
+     */
     private fun startUrl(intent: Intent?): String {
+        if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain" && sharedStream(intent) != null) {
+            readSharedFile(sharedStream(intent)!!)
+            return BuildConfig.APP_URL + "/inbox?shared=file"
+        }
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
             val builder = Uri.parse(BuildConfig.APP_URL).buildUpon().path("/inbox")
             intent.getStringExtra(Intent.EXTRA_SUBJECT)?.takeIf { it.isNotBlank() }?.let { builder.appendQueryParameter("title", it.take(500)) }
@@ -82,6 +92,30 @@ class MainActivity : Activity() {
             return builder.build().toString()
         }
         return BuildConfig.APP_URL + "/dashboard"
+    }
+
+    @Suppress("DEPRECATION") // the typed version needs API 33; this app supports 26+
+    private fun sharedStream(intent: Intent): Uri? =
+        if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java) else intent.getParcelableExtra(Intent.EXTRA_STREAM)
+
+    private fun readSharedFile(uri: Uri) {
+        try {
+            val name = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null } ?: "chat.txt"
+            val bytes = contentResolver.openInputStream(uri)?.use { input ->
+                val out = ByteArrayOutputStream()
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    out.write(buffer, 0, n)
+                    if (out.size() > MAX_SHARED_BYTES) return PendingShare.setError("That file is over 5 MB. Export a shorter chat, or paste the part you need.")
+                }
+                out.toByteArray()
+            }
+            if (bytes == null) PendingShare.setError("Could not open the shared file.") else PendingShare.setFile(name, String(bytes, Charsets.UTF_8))
+        } catch (e: Exception) { // unreadable file, or permission to it already withdrawn
+            PendingShare.setError("Could not read the shared file.")
+        }
     }
 
     private fun configureWebView() {
@@ -175,6 +209,7 @@ class MainActivity : Activity() {
     private companion object {
         const val REQ_FILE = 1
         const val REQ_AUDIO = 2
+        const val MAX_SHARED_BYTES = 5_000_000 // same limit as the website's own chat import
         val OFFLINE_HTML = """
             <html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
             <body style="font-family:sans-serif;margin:0;padding:48px 24px;text-align:center;color:#334155">

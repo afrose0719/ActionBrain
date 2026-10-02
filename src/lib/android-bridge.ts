@@ -7,6 +7,8 @@ export type AndroidBridge = {
   /** Hands the private token to the app (it keeps it encrypted). True if the app accepted it. */
   saveIntake(address: string, token: string): boolean;
   clearIntake(): void;
+  /** A chat export shared to the app: JSON text, see parseSharedFile. "" when nothing is waiting. Reading it clears it. */
+  takeSharedFile(): string;
   /** JSON text, see parseAndroidStatus. */
   status(): string;
   openNotificationAccess(): void;
@@ -27,7 +29,7 @@ export type AndroidStatus = {
   lastResult: string;
 };
 
-const METHODS = ["isApp", "saveIntake", "clearIntake", "status", "openNotificationAccess", "openBatterySettings", "openAppInfo"] as const;
+const METHODS = ["isApp", "saveIntake", "clearIntake", "takeSharedFile", "status", "openNotificationAccess", "openBatterySettings", "openAppInfo"] as const;
 
 /** The app's bridge, or null in a normal browser (or if something else defined a look-alike object). */
 export function getAndroidBridge(host: unknown = typeof window === "undefined" ? undefined : window): AndroidBridge | null {
@@ -55,4 +57,22 @@ export function parseAndroidStatus(json: unknown): AndroidStatus | null {
   if (d.app !== true || typeof d.version !== "string" || typeof d.configured !== "boolean" || typeof d.listening !== "boolean") return null;
   if (sent === null || failed === null || lastAt === null || typeof d.lastResult !== "string") return null;
   return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120) };
+}
+
+export type SharedFile = { ok: true; name: string; text: string } | { ok: false; error: string };
+
+/** Reads what takeSharedFile() returned. Null if nothing was waiting (or it is not the expected shape). */
+export function parseSharedFile(json: unknown): SharedFile | null {
+  if (typeof json !== "string" || json === "") return null;
+  let data: unknown;
+  try {
+    data = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  if (typeof data !== "object" || data === null) return null;
+  const d = data as Record<string, unknown>;
+  if (typeof d.error === "string") return { ok: false, error: d.error.slice(0, 200) };
+  if (typeof d.name !== "string" || typeof d.text !== "string") return null;
+  return { ok: true, name: d.name.slice(0, 200), text: d.text };
 }

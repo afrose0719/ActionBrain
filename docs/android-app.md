@@ -6,7 +6,7 @@ A small native Android app (Kotlin, no libraries) that shows your ActionBrain we
 - **Opens your ActionBrain website** (and only that one site). You log in once; the login stays.
 - **Forwards WhatsApp messages to your Inbox.** It reads WhatsApp's notifications (only WhatsApp and WhatsApp Business) after **you** switch on Notification access for ActionBrain. Group chats are recognised reliably, using the group flag Android attaches to the notification.
 - **Gets its token from the website.** In **Settings → Phone messages**, press **Create my private link** inside the app. The page hands the token to the app, which keeps it encrypted in Android's Keystore. Nothing to copy or paste.
-- **Share to ActionBrain.** Share text from any app and choose ActionBrain: it opens the Inbox with the text filled in.
+- **Share to ActionBrain.** Share text from any app that has a Share button and choose ActionBrain: it opens the Inbox with the text filled in. **WhatsApp chat export:** in a chat, ⋮ → More → **Export chat** → **Without media** → ActionBrain. The Inbox opens with the whole conversation loaded (who said what, with times), ready for **Add & analyze**. (WhatsApp itself offers only Copy and Forward on single text messages, so Share works for an exported chat, not for one message.)
 - **Microphone and file pickers work inside it** (Record a call, Use a call recording, Import chat). The microphone is asked for only when you press Record.
 - Shows its own status in Settings: connected, notification access on/off, messages sent and failed.
 
@@ -14,6 +14,7 @@ A small native Android app (Kotlin, no libraries) that shows your ActionBrain we
 - It **cannot hear phone calls**. Android does not give ordinary apps both sides of a cellular call. (Call detection and your phone's own call recordings are the planned next step, Milestone 24.)
 - It sees only the notification **preview**: very long messages arrive cut off, and a message you read before the notification appeared will not be seen.
 - There is **no offline queue**: if the phone has no internet for about 12 seconds after a message, that message is counted as failed and is not retried later.
+- **While you are looking at a chat, WhatsApp posts no notification for it**, so messages that arrive during a live conversation are not captured by this method. Export the chat afterwards (see above).
 - Android shows the **latest** message of a notification. If several arrive within a fraction of a second, an earlier one can be missed.
 
 ## Permissions

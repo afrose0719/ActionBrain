@@ -6,10 +6,10 @@ import { Archive, Sparkles, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
 import { sharedTextFrom } from "@/lib/navigation";
+import { getAndroidBridge, parseSharedFile } from "@/lib/android-bridge";
 import type { RawCommitment } from "@/lib/ai/actions";
 import { SuggestionList } from "@/components/suggestion-list";
-import { formatEmail, parseEml } from "@/lib/import/email";
-import { chatNameFromFilename, formatWhatsApp, parseWhatsApp } from "@/lib/import/whatsapp";
+import { importFrom, MAX_IMPORT, TOO_BIG, type ImportResult } from "@/lib/import/chat";
 import type { InboxItem, Suggestion } from "@/lib/types";
 
 const BATCH_LIMIT = 10; // one click analyzes at most this many, so a busy phone cannot spend your AI budget in one go
@@ -130,41 +130,39 @@ export default function InboxPage() {
     setBatching(false);
   }
 
-  // Import a WhatsApp chat export (.txt) or an email (.eml). It only fills the form: you review it before saving.
+  // Shows an imported email or chat in the form. It only fills the form: you review it before saving.
+  const applyImport = useCallback((result: ImportResult) => {
+    setError("");
+    if (!result.ok) return setError(result.error);
+    setSourceType(result.sourceType);
+    setSourceRef(result.sourceRef);
+    setContent(result.content);
+    setImportNote(result.note);
+  }, []);
+
+  // Import a WhatsApp chat export (.txt) or an email (.eml) chosen from the device.
   async function onImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow choosing the same file again
     if (!file) return;
-    setError("");
     setImportNote("");
-    if (file.size > 5_000_000) return setError("That file is over 5 MB. Export a shorter chat or paste the part you need.");
-
-    const raw = await file.text();
-    if (file.name.toLowerCase().endsWith(".eml")) {
-      const mail = parseEml(raw);
-      if (!mail.body) return setError("I could not find any readable text in that email file.");
-      const f = formatEmail(mail);
-      setSourceType("email");
-      setSourceRef(f.ref);
-      setContent(f.text);
-      setImportNote("Email imported. Review it, then click Add & analyze.");
-      return;
-    }
-
-    const messages = parseWhatsApp(raw);
-    if (messages.length === 0) {
-      return setError("That does not look like a WhatsApp chat export or an .eml email. You can still paste the text below.");
-    }
-    const f = formatWhatsApp(messages);
-    setSourceType("whatsapp");
-    setSourceRef(`WhatsApp chat with ${chatNameFromFilename(file.name)}`);
-    setContent(f.text);
-    setImportNote(
-      f.included < f.total
-        ? `Imported the most recent ${f.included} of ${f.total} messages (the limit is about 6,000 characters). Review, then click Add & analyze.`
-        : `Imported all ${f.total} messages. Review, then click Add & analyze.`
-    );
+    if (file.size > MAX_IMPORT) return setError(TOO_BIG);
+    applyImport(importFrom(await file.text(), file.name));
   }
+
+  // In the ActionBrain Android app, a chat exported from WhatsApp and shared to ActionBrain arrives here.
+  // The app holds it in memory until this page asks for it, once.
+  useEffect(() => {
+    (async () => {
+      if (new URLSearchParams(window.location.search).get("shared") !== "file") return;
+      window.history.replaceState(null, "", "/inbox");
+      const file = parseSharedFile(getAndroidBridge()?.takeSharedFile());
+      if (!file) return setError("The shared chat did not arrive. Try sharing it again.");
+      if (!file.ok) return setError(file.error);
+      if (file.text.length > MAX_IMPORT) return setError(TOO_BIG);
+      applyImport(importFrom(file.text, file.name));
+    })();
+  }, [applyImport]);
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault();

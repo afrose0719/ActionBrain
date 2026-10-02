@@ -16,7 +16,7 @@
 | **Phone call recordings (Android)** | Record calls with your phone's own recorder, then **Share → ActionBrain**. It is transcribed on the phone (private, free) and turned into suggested tasks and commitments. See `docs/android-call-recordings.md`. |
 | **Meetings** | Paste or upload a transcript (`.txt`, `.vtt`, `.srt`). Get a summary, decisions, your action items and commitments. Optionally pick the meeting from Google Calendar. |
 | **Reminders** | The Chrome extension shows desktop notifications for due and overdue tasks and commitments, and "time to chase" nudges. The dashboard lists everything waiting for your review. |
-| **Install as an app** | Add ActionBrain to your phone or desktop (a PWA). On Android, **Share → ActionBrain** from WhatsApp, Gmail or any app sends the text to your Inbox. Shows a friendly offline page without a connection. |
+| **Install as an app** | Add ActionBrain to your phone or desktop (a PWA). On Android, **Share → ActionBrain** from any app with a Share button sends the text to your Inbox. (WhatsApp offers Share only for an exported chat, not for single text messages.) Shows a friendly offline page without a connection. |
 | **Your data** | Export everything as JSON (or tasks as CSV), and permanently delete your account and all data from Settings. |
 | **Search** | Ask questions across your tasks, commitments and messages. Answers cite their sources. |
 

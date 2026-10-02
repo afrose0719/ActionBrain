@@ -165,7 +165,7 @@ export default function SettingsPage() {
             <>
               <p className="text-ink-muted">
                 Add ActionBrain to your home screen or desktop. It opens in its own window like a normal app.
-                On Android you can also use <strong>Share → ActionBrain</strong> in WhatsApp, Gmail or any app to send text straight to your Inbox.
+                On Android you can also use <strong>Share → ActionBrain</strong> in any app with a Share button (for example a WhatsApp exported chat) to send text straight to your Inbox.
               </p>
               {install.canInstall ? (
                 <div>

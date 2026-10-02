@@ -63,6 +63,29 @@ class PayloadTest {
     }
 
     @Test
+    fun aSharedFileIsHandedOverExactlyOnce() {
+        PendingShare.take() // start clean
+        assertEquals("", PendingShare.take())
+        PendingShare.setFile("WhatsApp Chat with Rajesh.txt", "line1\n\"quoted\" \\ end")
+        assertEquals("{\"name\":\"WhatsApp Chat with Rajesh.txt\",\"text\":\"line1\\n\\\"quoted\\\" \\\\ end\"}", PendingShare.take())
+        assertEquals("", PendingShare.take()) // gone after being read
+    }
+
+    @Test
+    fun aSharedFileErrorIsHandedOverOnceAndReplacesAFile() {
+        PendingShare.setFile("a.txt", "x")
+        PendingShare.setError("too big")
+        assertEquals("{\"error\":\"too big\"}", PendingShare.take())
+        assertEquals("", PendingShare.take())
+    }
+
+    @Test
+    fun aSharedFileNameIsCut() {
+        PendingShare.setFile("n".repeat(500), "x")
+        assertTrue(PendingShare.take().contains("\"name\":\"" + "n".repeat(200) + "\""))
+    }
+
+    @Test
     fun recentSetDropsRepeatsInsideTheWindowOnly() {
         var now = 0L
         val set = RecentSet(windowMs = 1000, maxSize = 100, clock = { now })

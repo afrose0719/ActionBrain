@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { getAndroidBridge, parseAndroidStatus } from "../src/lib/android-bridge.ts";
+import { getAndroidBridge, parseAndroidStatus, parseSharedFile } from "../src/lib/android-bridge.ts";
 import { looksLikeToken } from "../src/lib/intake.ts";
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
@@ -10,6 +10,7 @@ const fullBridge = () => ({
   isApp: () => true,
   saveIntake: () => true,
   clearIntake: () => {},
+  takeSharedFile: () => "",
   status: () => "{}",
   openNotificationAccess: () => {},
   openBatterySettings: () => {},
@@ -78,6 +79,30 @@ test("numbers are whole and text is cut, so a odd status cannot break the page",
   assert.equal(s?.lastResult.length, 120);
 });
 
+// ---- a chat shared to the app ----
+test("nothing waiting, or something that is not the expected shape, is null", () => {
+  for (const input of [undefined, null, 5, "", "{not json", "null", "[]", "{}", JSON.stringify({ name: "a.txt" }), JSON.stringify({ text: "x" }), JSON.stringify({ name: 1, text: "x" })]) {
+    assert.equal(parseSharedFile(input), null, String(input));
+  }
+});
+
+test("a shared chat is read, including quotes, newlines and other scripts", () => {
+  const text = ["line one", String.raw`"quoted" \ राजेश 📷`].join("\n");
+  assert.deepEqual(parseSharedFile(JSON.stringify({ name: "WhatsApp Chat with Rajesh.txt", text })), { ok: true, name: "WhatsApp Chat with Rajesh.txt", text });
+});
+
+test("an error from the app is passed on, cut to a safe length", () => {
+  assert.deepEqual(parseSharedFile(JSON.stringify({ error: "too big" })), { ok: false, error: "too big" });
+  assert.equal((parseSharedFile(JSON.stringify({ error: "e".repeat(999) })) as { error: string }).error.length, 200);
+});
+
+test("the inbox uses ONE import function for both the file picker and the app hand-off", () => {
+  const inbox = read("src/app/(app)/inbox/page.tsx");
+  assert.equal((inbox.match(/importFrom\(/g) ?? []).length, 2); // the file picker and the app hand-off, both through src/lib/import/chat.ts
+  assert.ok(inbox.includes('get("shared") !== "file"'));
+  assert.ok(inbox.includes("takeSharedFile()"));
+});
+
 // ---- the Kotlin side and this side must agree ----
 const kotlinPayload = read("android/app/src/main/java/app/actionbrain/android/Payload.kt");
 const kotlinBridge = read("android/app/src/main/java/app/actionbrain/android/WebBridge.kt");
@@ -91,7 +116,7 @@ test("the app and the website use the same token format", () => {
 
 test("every method the website calls exists in the app's bridge, and nothing extra is exposed", () => {
   const exposed = [...kotlinBridge.matchAll(/@JavascriptInterface\s+fun (\w+)/g)].map((m) => m[1]).sort();
-  assert.deepEqual(exposed, ["clearIntake", "isApp", "openAppInfo", "openBatterySettings", "openNotificationAccess", "saveIntake", "status"]);
+  assert.deepEqual(exposed, ["clearIntake", "isApp", "openAppInfo", "openBatterySettings", "openNotificationAccess", "saveIntake", "status", "takeSharedFile"]);
   const website = Object.keys(fullBridge()).sort();
   assert.deepEqual(exposed, website);
 });

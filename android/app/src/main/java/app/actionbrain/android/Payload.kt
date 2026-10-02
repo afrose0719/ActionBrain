@@ -40,6 +40,32 @@ object Payload {
 }
 
 /**
+ * A file shared TO the app (an exported WhatsApp chat) waits here until the website asks for it, exactly once.
+ * It lives in memory only: never written to disk, never sent anywhere by the app. The website reads it and shows it for your review.
+ */
+object PendingShare {
+    private var json: String? = null
+
+    @Synchronized
+    fun setFile(name: String, text: String) {
+        json = "{\"name\":" + Payload.quote(name.take(200)) + ",\"text\":" + Payload.quote(text) + "}"
+    }
+
+    @Synchronized
+    fun setError(message: String) {
+        json = "{\"error\":" + Payload.quote(message) + "}"
+    }
+
+    /** The waiting file as JSON, or "" if none. Reading it clears it. */
+    @Synchronized
+    fun take(): String {
+        val value = json ?: ""
+        json = null
+        return value
+    }
+}
+
+/**
  * Android often posts the same notification again (when it is updated, or when you open the chat).
  * A message with the same sender and text seen within the window is not sent twice. (The server also drops repeats.)
  */

@@ -60,7 +60,7 @@ Supabase's built-in email sender is for testing and allows only a few emails per
 
 ## 6b. Install it on your phone
 Installing needs the **HTTPS** address, so do this after deploying.
-- **Android (Chrome):** open the site → menu → **Install app**. Afterwards, **Share → ActionBrain** in WhatsApp, Gmail or any app drops the text into your Inbox form, and sharing a **call recording** opens it in Meetings for private on-device transcription (`docs/android-call-recordings.md`).
+- **Android (Chrome):** open the site → menu → **Install app**. Afterwards, **Share → ActionBrain** from any app that has a Share button (a browser page, notes, a WhatsApp **exported chat**) drops the text into your Inbox form, and sharing a **call recording** opens it in Meetings for private on-device transcription (`docs/android-call-recordings.md`).
 - **iPhone / iPad (Safari):** **Share → Add to Home Screen**. (iOS does not support the Share-to-app feature.)
 - **Desktop (Chrome/Edge):** click the install icon in the address bar, or Settings → Install the app.
 
