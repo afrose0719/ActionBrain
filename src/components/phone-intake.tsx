@@ -228,6 +228,12 @@ export function PhoneIntake() {
                         {phone.listening ? <Check size={16} className="text-success-600" /> : <span aria-hidden="true" className="inline-block h-4 w-4 text-center text-danger-600">!</span>}
                         {phone.listening ? "Notification access is on." : "Notification access is off, so no WhatsApp messages can be read yet."}
                       </li>
+                      {!phone.screenAvailable && (
+                        <li className="text-ink-muted">
+                          Live chat reading is not in this version of the app (v{phone.version}). To capture messages while a chat is open, install the <strong>full</strong> app, version 0.3.0 or newer
+                          (<code>docs/android-app.md</code>).
+                        </li>
+                      )}
                       {phone.screenAvailable && (
                         <li className="flex items-center gap-2">
                           {phone.screenOn ? <Check size={16} className="text-success-600" /> : <span aria-hidden="true" className="inline-block h-4 w-4 text-center text-ink-subtle">–</span>}

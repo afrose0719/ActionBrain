@@ -63,9 +63,13 @@ export function parseAndroidStatus(json: unknown): AndroidStatus | null {
   const failed = count(d.failed);
   const lastAt = count(d.lastAt);
   if (d.app !== true || typeof d.version !== "string" || typeof d.configured !== "boolean" || typeof d.listening !== "boolean") return null;
-  if (typeof d.screenAvailable !== "boolean" || typeof d.screenOn !== "boolean") return null;
+  // Apps older than 0.3.0 do not send the two live-reading fields: treat missing as "not available". Wrong types are still refused.
+  const optional = (v: unknown) => (v === undefined ? false : typeof v === "boolean" ? v : null);
+  const screenAvailable = optional(d.screenAvailable);
+  const screenOn = optional(d.screenOn);
+  if (screenAvailable === null || screenOn === null) return null;
   if (sent === null || failed === null || lastAt === null || typeof d.lastResult !== "string") return null;
-  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, screenAvailable: d.screenAvailable, screenOn: d.screenOn, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120) };
+  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, screenAvailable, screenOn, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120) };
 }
 
 export type SharedFile = { ok: true; name: string; text: string } | { ok: false; error: string };

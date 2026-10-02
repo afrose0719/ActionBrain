@@ -78,6 +78,22 @@ test("anything that is not exactly the expected shape is refused", () => {
   for (const input of bad) assert.equal(parseAndroidStatus(input), null, String(input));
 });
 
+test("an older app (before 0.3.0) that does not send the live-reading fields still works, as 'not available'", () => {
+  const older: Record<string, unknown> = { ...goodStatus };
+  delete older.screenAvailable;
+  delete older.screenOn;
+  const s = parseAndroidStatus(JSON.stringify(older));
+  assert.equal(s?.screenAvailable, false);
+  assert.equal(s?.screenOn, false);
+  assert.equal(s?.sent, 3);
+});
+
+test("the page tells you when the installed app has no live chat reading", () => {
+  const panel = readFileSync(new URL("../src/components/phone-intake.tsx", import.meta.url), "utf8");
+  assert.ok(panel.includes("!phone.screenAvailable"));
+  assert.ok(panel.includes("is not in this version of the app"));
+});
+
 test("numbers are whole and text is cut, so a odd status cannot break the page", () => {
   const s = parseAndroidStatus(JSON.stringify({ ...goodStatus, sent: 2.9, version: "v".repeat(100), lastResult: "r".repeat(1000) }));
   assert.equal(s?.sent, 2);
