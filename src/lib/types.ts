@@ -41,6 +41,10 @@ export type InboxItem = {
   status: InboxStatus;
   ai_suggestions: Suggestion[];
   created_at: string;
+  /** When the newest line arrived (a phone conversation grows over time). Added in Milestone 26. */
+  last_message_at?: string;
+  /** How many messages are in this item. Added in Milestone 26. */
+  message_count?: number;
 };
 
 export type Direction = "mine" | "theirs";

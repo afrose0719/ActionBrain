@@ -100,6 +100,10 @@ if (!canProbe) {
     else if (intake.status === 404) add(SECTION_DB, fail('Function "ingest_message" is missing. Run supabase/milestone22-intake.sql. Phone message intake will not work without it.'));
     else add(SECTION_DB, fail(`ingest_message answered a wrong token with ${intake.status} (${JSON.stringify(intake.body)}). It must answer "invalid".`));
 
+    const grouping = await call("/rest/v1/inbox_items?select=last_message_at,message_count&limit=1");
+    if (grouping.status === 200) add(SECTION_DB, pass("inbox_items has the conversation-grouping columns."));
+    else add(SECTION_DB, fail("inbox_items is missing last_message_at / message_count. Run supabase/milestone26-grouping.sql. Without it the Inbox cannot load."));
+
     if (reach.body?.mailer_autoconfirm === true) {
       add(SECTION_DB, warn("Email confirmation is OFF, so anyone can sign up with any address, including one that is not theirs. Turn it on (Authentication → Sign In / Providers → Email → Confirm email) and set up SMTP before a public launch."));
     } else if (reach.body?.mailer_autoconfirm === false) {

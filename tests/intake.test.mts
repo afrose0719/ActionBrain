@@ -127,6 +127,7 @@ test("Hindi and other scripts count as text", () => {
 // ---- the SQL and the TypeScript must agree ----
 const sql = readFileSync(new URL("../supabase/milestone22-intake.sql", import.meta.url), "utf8");
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8");
+const sql26 = readFileSync(new URL("../supabase/milestone26-grouping.sql", import.meta.url), "utf8");
 
 test("the database function uses the same token pattern and hash as the code", () => {
   assert.ok(sql.includes("'^abi_[A-Za-z0-9_-]{43}$'"));
@@ -157,7 +158,7 @@ test("schema.sql carries the same function body as the milestone file", () => {
     const text = raw.replace(/\r\n/g, "\n"); // schema.sql and the milestone file may use different line endings
     return text.slice(text.indexOf("create or replace function public.ingest_message"), text.indexOf("grant execute on function public.ingest_message"));
   };
-  assert.equal(fn(schema), fn(sql));
+  assert.equal(fn(schema), fn(sql26)); // schema.sql always carries the newest function; the older milestone files are history
   assert.ok(schema.includes("create table if not exists public.intake_settings"));
 });
 
@@ -195,6 +196,5 @@ test("the Milestone 24 SQL adds p_mine, drops the old function, and says 'You' f
     const t = raw.replace(/\r\n/g, "\n");
     return t.slice(t.indexOf("create or replace function public.ingest_message"), t.indexOf("grant execute on function public.ingest_message"));
   };
-  assert.equal(body(sql24), body(schema));
-  assert.equal(body(sql24), body(sql));
+  assert.equal(body(sql26), body(schema));
 });

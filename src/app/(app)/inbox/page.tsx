@@ -6,6 +6,7 @@ import { Archive, Sparkles, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
 import { sharedTextFrom } from "@/lib/navigation";
+import { conversationLabel } from "@/lib/conversation";
 import { getAndroidBridge, parseSharedFile } from "@/lib/android-bridge";
 import type { RawCommitment } from "@/lib/ai/actions";
 import { SuggestionList } from "@/components/suggestion-list";
@@ -46,6 +47,7 @@ export default function InboxPage() {
       .from("inbox_items")
       .select("*")
       .neq("status", "archived")
+      .order("last_message_at", { ascending: false }) // a conversation that is still going stays on top
       .order("created_at", { ascending: false });
     if (error) setError(error.message);
     else setItems(data as InboxItem[]);
@@ -329,7 +331,7 @@ export default function InboxPage() {
                     <div className="mb-2 flex flex-wrap items-center gap-2">
                       <span className="badge-brand">{item.source_type}</span>
                       {item.source_ref && <span className="text-xs text-ink-muted">{item.source_ref}</span>}
-                      <span className="text-xs text-ink-subtle">{new Date(item.created_at).toLocaleString()}</span>
+                      <span className="text-xs text-ink-subtle">{conversationLabel(item) ?? new Date(item.created_at).toLocaleString()}</span>
                     </div>
                     <p className="whitespace-pre-wrap">{item.content}</p>
                   </div>

@@ -75,7 +75,9 @@ create table if not exists public.inbox_items (
   content        text not null,
   status         text not null default 'new' check (status in ('new', 'analyzed', 'archived')),
   ai_suggestions jsonb not null default '[]'::jsonb,
-  created_at     timestamptz not null default now()
+  created_at     timestamptz not null default now(),
+  last_message_at timestamptz not null default now(),   -- Milestone 26: when the newest line of this item arrived
+  message_count   integer not null default 1            -- Milestone 26: how many messages are in this item
 );
 
 alter table public.inbox_items enable row level security;
@@ -234,7 +236,9 @@ create policy "Users update own intake" on public.intake_settings for update usi
 create policy "Users delete own intake" on public.intake_settings for delete using (auth.uid() = user_id);
 
 -- Returns one of: 'stored', 'duplicate', 'ignored', 'limit', 'invalid'. Never reveals anything else.
-drop function if exists public.ingest_message(text, text, text, text);
+-- Grouping (Milestone 26): messages of one CONVERSATION go into one Inbox item for as long as the chat is active (a 60 minute quiet gap
+-- ends it). A conversation is one person for a one-to-one chat and one group for a group chat. Only items you have not analyzed yet
+-- take new lines, so tasks you already created or dismissed are never disturbed.
 create or replace function public.ingest_message(p_token text, p_sender text, p_text text, p_group text default null, p_mine boolean default false)
 returns text
 language plpgsql
@@ -252,6 +256,7 @@ declare
   v_ref    text;
   v_recent public.inbox_items%rowtype;
   v_last   text;
+  v_continues boolean;
 begin
   if p_token is null or p_token !~ '^abi_[A-Za-z0-9_-]{43}$' then
     return 'invalid';
@@ -282,7 +287,8 @@ begin
     v_stamp := to_char(now() at time zone 'UTC', 'YYYY-MM-DD HH24:MI');
   end;
 
-  v_ref  := 'WhatsApp from ' || v_sender || case when v_group is null then '' else ' in ' || v_group end;
+  -- one item per conversation: per person for a one-to-one chat, per GROUP for a group chat (every member's lines and yours, in time order)
+  v_ref := case when v_group is null then 'WhatsApp from ' || v_sender else 'WhatsApp group: ' || v_group end;
   -- p_mine: a message YOU wrote (read from the open chat). p_sender is then the CHAT it was written in, and the line says "You".
   if coalesce(p_mine, false) then
     v_body := 'You (' || case when v_group is null then 'to ' || v_sender else 'in ' || v_group end || '): ' || v_text;
@@ -291,25 +297,30 @@ begin
   end if;
   v_line := '[' || v_stamp || '] ' || v_body;
 
-  -- Several messages from the same person within 5 minutes are one conversation: add to the same inbox item, so the AI sees context.
+  -- the open item for this conversation: not analyzed yet, and its LAST message was less than 60 minutes ago.
+  -- (an item that filled up continues in a "(continued)" item, which is found the same way)
   select * into v_recent from public.inbox_items
-   where user_id = s.user_id and source_type = 'whatsapp' and source_ref = v_ref and status = 'new'
-     and created_at > now() - interval '5 minutes'
-   order by created_at desc limit 1;
+   where user_id = s.user_id and source_type = 'whatsapp' and source_ref in (v_ref, v_ref || ' (continued)') and status = 'new'
+     and last_message_at > now() - interval '60 minutes'
+   order by last_message_at desc, length(source_ref) desc limit 1; -- on a tie, the "(continued)" item is the newer one
+  v_continues := found;
 
-  if found then
+  if v_continues then
     v_last := regexp_replace(v_recent.content, '^.*\n', '');
     if regexp_replace(v_last, '^\[[^]]*\] ', '') = v_body then
       return 'duplicate'; -- Android often posts the same notification twice
     end if;
     if length(v_recent.content) + 1 + length(v_line) <= 6000 then
-      update public.inbox_items set content = v_recent.content || E'\n' || v_line where id = v_recent.id;
+      update public.inbox_items set content = v_recent.content || E'\n' || v_line, last_message_at = now(), message_count = message_count + 1
+       where id = v_recent.id;
       update public.intake_settings set received_count = received_count + 1, last_received_at = now() where user_id = s.user_id;
       return 'stored';
     end if;
   end if;
 
-  insert into public.inbox_items (user_id, source_type, source_ref, content) values (s.user_id, 'whatsapp', v_ref, v_line);
+  -- a new item. If we got here with an open item found, it was full, so this one continues it.
+  insert into public.inbox_items (user_id, source_type, source_ref, content, last_message_at, message_count)
+  values (s.user_id, 'whatsapp', case when v_continues then v_ref || ' (continued)' else v_ref end, v_line, now(), 1);
   update public.intake_settings set received_count = received_count + 1, last_received_at = now() where user_id = s.user_id;
   return 'stored';
 end;

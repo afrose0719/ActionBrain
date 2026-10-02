@@ -42,7 +42,12 @@ Answers: `{"status":"stored"}`, `"duplicate"` (the same notification twice), `"i
 
 ## How messages are stored
 - Each line is stamped with **your** local time, so the AI reads "tomorrow" as tomorrow from when it was sent, even if you analyze it hours later.
-- Messages from the same person within **5 minutes** join one Inbox item, so the AI sees the conversation.
+- **One conversation, one Inbox item.** Messages of the same chat join one item for as long as the chat is **active**: a **60-minute quiet gap**, counted from the **last** message, ends it. After that, the next message starts a new item. (It used to be a fixed 5 minutes from the first message, which split a continuous chat into pieces.)
+  - **One-to-one chat:** one item per person. Your own messages (live chat reading) join the same item, in time order.
+  - **Group chat:** one item **per group**, with every member's lines and yours in order (not one item per member).
+  - **Only items you have not analyzed take new lines.** Once you press Analyze, that item is frozen, so tasks you already created or dismissed are never disturbed. A message that arrives later starts a new item.
+  - **A full item continues.** An item holds about 6,000 characters (what the AI reads). When it is full, the conversation carries on in a "(continued)" item.
+  - The card shows how much it holds, for example **"12 messages · 10:15–11:42"**, and a conversation that is still going stays at the top of the Inbox.
 - Up to **300 phone messages a day** are accepted; beyond that the address answers `limit`. This stops a leaked token from flooding your Inbox.
 - **Analyze** works on up to **10 messages per click** and stops at the first error, so a busy phone cannot spend your AI budget in one go.
 
