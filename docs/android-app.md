@@ -9,6 +9,7 @@ A small native Android app (Kotlin, no libraries) that shows your ActionBrain we
 - **Share to ActionBrain.** Share text from any app that has a Share button and choose ActionBrain: it opens the Inbox with the text filled in. **WhatsApp chat export:** in a chat, ⋮ → More → **Export chat** → **Without media** → ActionBrain. The Inbox opens with the whole conversation loaded (who said what, with times), ready for **Add & analyze**. (WhatsApp itself offers only Copy and Forward on single text messages, so Share works for an exported chat, not for one message.)
 - **Microphone and file pickers work inside it** (Record a call, Use a call recording, Import chat). The microphone is asked for only when you press Record.
 - Shows its own status in Settings: connected, notification access on/off, messages sent and failed.
+- **You choose what is captured** (notifications, chat reading Automatic / On tap / Off, pause) and can add a **Quick Settings tile**. See "Choosing what to capture" below.
 
 ## What it cannot do (Android's rules, not a gap in the app)
 - It **cannot hear phone calls**. Android does not give ordinary apps both sides of a cellular call. (Call detection and your phone's own call recordings are the planned next step, Milestone 24.)
@@ -77,6 +78,34 @@ Plan: submit the `play` build first (notifications and chat export), then add th
 - Telling *your* messages from other people's uses where the text sits on screen (right edge = you). That is a rule of thumb and can be wrong for very long messages. The thresholds are the first thing to tune on a real phone.
 - Group member names are read from the same message row. If WhatsApp changes the layout, the sender becomes "Unknown", never another member's name.
 
+## Choosing what to capture (Milestone 25)
+**Settings → Phone messages → This phone → What to capture** has three independent controls. Everything is optional.
+
+| Control | Choices | Effect |
+|---|---|---|
+| **Notifications** | On / Off | Messages that arrive while you are **not** looking at that chat |
+| **Chat reading** (full build) | **Automatic** / **On tap** / **Off** | Messages in a chat you have **open** |
+| **Pause** | 1 hour / 8 hours / Resume | Switches **both** off for a while. Your choices are kept and come back when it ends. |
+
+These switches change only what ActionBrain does. Android's own permissions (notification access, Accessibility) stay as they are; remove them in Android Settings if you want them gone.
+
+**On tap (the floating button).**
+- A round **A** button appears at the screen edge **only while a WhatsApp chat is on screen**, and only in On tap mode.
+- **Tap it:** everything visible in the chat is sent to your Inbox, except what was already sent. A short message tells you how many ("✓ 5 messages captured", or "Nothing new to capture"). Older messages you scroll back to count: pressing the button is a deliberate "take what I can see".
+- **Drag it** to move it (it remembers where). **Long-press it** to hide it until tomorrow; **Show the floating button again** in Settings brings it back.
+- In this mode the service does **nothing in the background**: it reads the screen only at the moment you tap. That is more private, uses less battery, and is a narrower use of the Accessibility API than Automatic.
+- The button is an Accessibility overlay, so it needs **no "Display over other apps" permission**. It never takes keyboard focus. TalkBack can activate it (it has a label and responds to double-tap).
+- A tap and Automatic mode never send the same message twice: each remembers what the other sent.
+
+**Quick Settings tile.** Pull the notification shade down, open the editing pencil, and drag **ActionBrain** in (or press **Add Quick Settings tile** in Settings: Android 13+ then asks "Add tile?"). Tap the tile to **pause all capture for an hour**; tap again to resume. It changes nothing but the pause.
+
+**Defaults.** Notifications on, chat reading **Automatic** (so an install that already had live reading keeps working). Chat reading only does anything once you have switched it on in Android's Accessibility settings after the in-app consent.
+
+**Limits of On tap:**
+- Lines are stamped with the time they reach ActionBrain, not the time shown in WhatsApp. If you capture an old conversation, "tomorrow" in an old message is dated from now.
+- The button's default place (right edge, a third of the way down) may sit over part of a chat. Drag it.
+- It depends on WhatsApp's screen part names, like Automatic does (see the limits above). If it captures nothing, use **Show what the app sees**.
+
 ## Security design
 - **One website.** The WebView only stays on your site (`https` and the exact host). Every other link opens in the phone's browser, never inside the app, so no other page can reach the bridge.
 - **A narrow bridge.** The page can call only seven methods (a test checks the list). `saveIntake` accepts the token only if it is well formed **and** the address is exactly your site's `/api/intake`. The token goes in and never comes back out; the status the page reads contains no token.
@@ -87,7 +116,7 @@ Plan: submit the `play` build first (notifications and chat export), then add th
 - This is a **debug-signed** build. Fine for your own phone. Debug keys differ per computer, so an APK built on another machine cannot update this install: uninstall first (you will create a new token).
 
 ## Tests
-- **Kotlin unit tests** (`android/app/src/test`, 34 tests, run with `./gradlew testFullDebugUnitTest`): token format, the "only your own address" rule, JSON escaping (including text that tries to break out of the JSON), length caps, duplicate suppression, the shared-chat hand-off, and the live-reading logic (`ScreenReaderTest`: baseline, new messages only, scrolling around, switching chats, groups, who wrote it, never reading the typing box, the structure dump containing no message text). Breaking the token rule on purpose makes one fail.
+- **Kotlin unit tests** (`android/app/src/test`, 51 tests, run with `./gradlew testFullDebugUnitTest`): token format, the "only your own address" rule, JSON escaping (including text that tries to break out of the JSON), length caps, duplicate suppression, the shared-chat hand-off, and the capture rules (`CapturePolicyTest`: every combination of notifications, mode, pause and hidden button), the live-reading logic including "capture everything visible" for the floating button (`ScreenReaderTest`: baseline, new messages only, scrolling around, switching chats, groups, who wrote it, never reading the typing box, the structure dump containing no message text). Breaking the token rule on purpose makes one fail.
 - **TypeScript tests** (`tests/android-bridge.test.mts`, 12 tests): the website's bridge handling, and checks that the Kotlin and TypeScript sides agree (token format, bridge method list, address, permissions, locked-down manifest, only WhatsApp read).
 
 ## What was tested, and what was not

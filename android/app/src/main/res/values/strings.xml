@@ -2,6 +2,11 @@
 <resources>
     <string name="app_name">ActionBrain</string>
 
+    <string name="tile_label">ActionBrain</string>
+    <string name="tile_howto">Swipe down twice, tap the pencil, and drag ActionBrain into your tiles.</string>
+    <string name="bubble_description">ActionBrain: capture this chat</string>
+    <string name="bubble_hidden_today">ActionBrain button hidden until tomorrow. Bring it back in ActionBrain Settings.</string>
+
     <!-- Shown by the app itself, before Android's Accessibility settings open. Google Play requires this prominent disclosure and consent. -->
     <string name="screen_consent_title">Allow ActionBrain to read WhatsApp chats?</string>
     <string name="screen_consent_body">ActionBrain can read the messages shown on your screen while a WhatsApp chat is open, so tasks and promises made in a live conversation reach your Inbox.\n\nWhat it reads: only the chat name and the message text in WhatsApp (and WhatsApp Business), including your own messages. It does not read other apps, and it does not read what you type.\n\nWhat happens to it: the text is sent to your own ActionBrain account and kept in your Inbox. It is sent to your AI provider only when you press Analyze, using your own key. It is never sold or used for advertising.\n\nThe people you chat with have not agreed to this. Use the allowed-senders list in Settings to limit it to chats you choose.\n\nYou can switch it off at any time in Android Settings → Accessibility, or by removing ActionBrain there.</string>

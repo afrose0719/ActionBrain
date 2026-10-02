@@ -3,21 +3,46 @@
 // The page must not trust it blindly: the status text is checked below before anything is shown.
 
 export type AndroidBridge = {
+  // present in every version of the app
   isApp(): boolean;
   /** Hands the private token to the app (it keeps it encrypted). True if the app accepted it. */
   saveIntake(address: string, token: string): boolean;
   clearIntake(): void;
-  /** A chat export shared to the app: JSON text, see parseSharedFile. "" when nothing is waiting. Reading it clears it. */
-  takeSharedFile(): string;
-  /** Shows the app's own consent dialog, then opens Android's Accessibility settings (only in the "full" app). */
-  openScreenReadingSettings(): void;
-  /** What the reading service sees, as structure only (no message text). "" if nothing yet. */
-  screenStructure(): string;
   /** JSON text, see parseAndroidStatus. */
   status(): string;
   openNotificationAccess(): void;
   openBatterySettings(): void;
   openAppInfo(): void;
+
+  // added later: an older app does not have them, so always call these with ?.()
+  /** A chat export shared to the app: JSON text, see parseSharedFile. "" when nothing is waiting. Reading it clears it. */
+  takeSharedFile?(): string;
+  /** Shows the app's own consent dialog, then opens Android's Accessibility settings (only in the "full" app). */
+  openScreenReadingSettings?(): void;
+  /** What the reading service sees, as structure only (no message text). "" if nothing yet. */
+  screenStructure?(): string;
+  /** Switch notification capture on or off. */
+  setNotificationsEnabled?(on: boolean): void;
+  /** "off", "auto" or "tap". False if the app refused it. */
+  setReadingMode?(mode: string): boolean;
+  /** Pause all capture for this many minutes (1 to 1440). 0 resumes. */
+  pauseCapture?(minutes: number): void;
+  /** Bring the floating button back after it was hidden for the day. */
+  showBubbleAgain?(): void;
+  /** Ask Android to add the Quick Settings tile (Android 13+), or explain how. */
+  addQuickSettingsTile?(): void;
+};
+
+export type ReadingMode = "off" | "auto" | "tap";
+
+/** The user's capture choices, as the app holds them. Null in `AndroidStatus.controls` for an app too old to have them. */
+export type CaptureControls = {
+  notificationsOn: boolean;
+  readingMode: ReadingMode;
+  /** Milliseconds since 1970 when the pause ends; in the past (or 0) means not paused. */
+  pausedUntil: number;
+  /** The floating button was hidden for today. */
+  bubbleHidden: boolean;
 };
 
 export type AndroidStatus = {
@@ -35,9 +60,11 @@ export type AndroidStatus = {
   /** Milliseconds since 1970, 0 if nothing yet. */
   lastAt: number;
   lastResult: string;
+  controls: CaptureControls | null;
 };
 
-const METHODS = ["isApp", "saveIntake", "clearIntake", "takeSharedFile", "openScreenReadingSettings", "screenStructure", "status", "openNotificationAccess", "openBatterySettings", "openAppInfo"] as const;
+// A look-alike object is refused unless it has all of these (every app version has them). Newer methods are checked where they are used.
+const METHODS = ["isApp", "saveIntake", "clearIntake", "status", "openNotificationAccess", "openBatterySettings", "openAppInfo"] as const;
 
 /** The app's bridge, or null in a normal browser (or if something else defined a look-alike object). */
 export function getAndroidBridge(host: unknown = typeof window === "undefined" ? undefined : window): AndroidBridge | null {
@@ -69,7 +96,9 @@ export function parseAndroidStatus(json: unknown): AndroidStatus | null {
   const screenOn = optional(d.screenOn);
   if (screenAvailable === null || screenOn === null) return null;
   if (sent === null || failed === null || lastAt === null || typeof d.lastResult !== "string") return null;
-  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, screenAvailable, screenOn, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120) };
+  const controls = parseControls(d);
+  if (controls === undefined) return null;
+  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, screenAvailable, screenOn, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120), controls };
 }
 
 export type SharedFile = { ok: true; name: string; text: string } | { ok: false; error: string };
@@ -88,4 +117,14 @@ export function parseSharedFile(json: unknown): SharedFile | null {
   if (typeof d.error === "string") return { ok: false, error: d.error.slice(0, 200) };
   if (typeof d.name !== "string" || typeof d.text !== "string") return null;
   return { ok: true, name: d.name.slice(0, 200), text: d.text };
+}
+
+/** null = an older app without capture controls. undefined = the app sent them but they are not the expected shape. */
+function parseControls(d: Record<string, unknown>): CaptureControls | null | undefined {
+  if (d.readingMode === undefined && d.notificationsOn === undefined && d.pausedUntil === undefined && d.bubbleHidden === undefined) return null;
+  const mode = d.readingMode;
+  if (mode !== "off" && mode !== "auto" && mode !== "tap") return undefined;
+  if (typeof d.notificationsOn !== "boolean" || typeof d.bubbleHidden !== "boolean") return undefined;
+  if (typeof d.pausedUntil !== "number" || !Number.isFinite(d.pausedUntil) || d.pausedUntil < 0) return undefined;
+  return { notificationsOn: d.notificationsOn, readingMode: mode, pausedUntil: Math.floor(d.pausedUntil), bubbleHidden: d.bubbleHidden };
 }

@@ -156,7 +156,7 @@ export default function InboxPage() {
     (async () => {
       if (new URLSearchParams(window.location.search).get("shared") !== "file") return;
       window.history.replaceState(null, "", "/inbox");
-      const file = parseSharedFile(getAndroidBridge()?.takeSharedFile());
+      const file = parseSharedFile(getAndroidBridge()?.takeSharedFile?.());
       if (!file) return setError("The shared chat did not arrive. Try sharing it again.");
       if (!file.ok) return setError(file.error);
       if (file.text.length > MAX_IMPORT) return setError(TOO_BIG);

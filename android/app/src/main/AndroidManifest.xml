@@ -32,6 +32,18 @@
             </intent-filter>
         </activity>
 
+        <!-- The Quick Settings tile: pull the notification shade down, tap its pencil, add "ActionBrain". Pauses or resumes all capture. -->
+        <service
+            android:name=".CaptureTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Receives notifications once YOU switch on "Notification access" for ActionBrain. Only WhatsApp's are used. -->
         <service
             android:name=".WhatsAppListenerService"

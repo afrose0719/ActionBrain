@@ -2,14 +2,22 @@ package app.actionbrain.android
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Toast
+import java.util.Calendar
 
 /**
- * Reads the messages of an OPEN WhatsApp chat (which WhatsApp does not announce as a notification) and sends the new ones to your Inbox.
+ * Reads the messages of an OPEN WhatsApp chat (which WhatsApp does not announce as a notification).
+ * What it does depends on the mode you chose in Settings (see [CaptureMode]):
+ *  - auto: reads the open chat by itself and sends the NEW messages.
+ *  - tap:  does nothing in the background. A floating button appears over the chat; when you tap it, it reads what is on screen once.
+ *  - off:  reads nothing.
+ * Pausing (Settings, or the Quick Settings tile) acts as "off" for everything for a while.
  *
  * Limits, on purpose:
  *  - Android only delivers events from WhatsApp's packages (see res/xml/screen_service_config.xml), and the code checks again.
@@ -21,36 +29,123 @@ import android.view.accessibility.AccessibilityNodeInfo
 class WhatsAppScreenService : AccessibilityService() {
     private val reader = ChatReader()
     private val handler = Handler(Looper.getMainLooper())
-    private val scan = Runnable { scanNow() }
+    private var bubble: Bubble? = null
+    private var misses = 0
+
+    private val screenChanged = Runnable { onScreenChanged() }
+    private val pollBubble = Runnable { refreshBubble() }
+
+    // switching a mode in Settings should take effect at once, not at the next screen change
+    private val settingsChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> handler.post { refreshBubble() } }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        getSharedPreferences("capture", MODE_PRIVATE).registerOnSharedPreferenceChangeListener(settingsChanged) // held by this field: Android keeps listeners weakly
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.packageName?.toString() !in PACKAGES) return
-        handler.removeCallbacks(scan)
-        handler.postDelayed(scan, DEBOUNCE_MS) // wait for the screen to settle: one look per burst of changes
+        handler.removeCallbacks(screenChanged)
+        handler.postDelayed(screenChanged, DEBOUNCE_MS) // wait for the screen to settle: one look per burst of changes
     }
 
     override fun onInterrupt() = Unit
 
     override fun onUnbind(intent: Intent?): Boolean {
-        handler.removeCallbacks(scan)
+        getSharedPreferences("capture", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(settingsChanged)
+        handler.removeCallbacksAndMessages(null)
+        removeBubble()
         reader.reset()
         ScreenStatus.lastStructure = ""
         return super.onUnbind(intent)
     }
 
-    private fun scanNow() {
+    private fun onScreenChanged() {
+        refreshBubble()
+        val now = System.currentTimeMillis()
+        if (CaptureSettings(this).load().readingMode(now) == CaptureMode.AUTO) autoRead()
+    }
+
+    // ---- automatic mode ----
+
+    private fun autoRead() {
         val root = rootInActiveWindow ?: return
-        if (root.packageName?.toString() !in PACKAGES) return reader.reset() // you moved to another app: forget the chat
+        if (!isWhatsApp(root)) return reader.reset() // you moved to another app: forget the chat
 
         val node = toNode(root, 0, intArrayOf(MAX_NODES))
-        ScreenStatus.lastStructure = ScreenStructure.dump(node)
-        ScreenStatus.lastSeenAt = System.currentTimeMillis()
+        record(node)
 
         val config = TokenStore(this).load() ?: return // not connected yet: nothing is sent
-        for (m in reader.read(node, resources.displayMetrics.widthPixels)) {
-            // your own message: the title is the chat it was written in. Someone else's: the title is who wrote it.
-            IntakeClient.send(this, config, Payload.message(if (m.mine) m.chat else m.sender, m.text, m.group, m.mine))
+        reader.read(node, resources.displayMetrics.widthPixels).forEach { send(config, it) }
+    }
+
+    // ---- on-tap mode ----
+
+    /** Shows or hides the floating button. It is shown only in tap mode, only over a WhatsApp chat, and not if hidden for today. */
+    private fun refreshBubble() {
+        val now = System.currentTimeMillis()
+        val policy = CaptureSettings(this).load()
+        if (policy.readingMode(now) != CaptureMode.TAP) return removeBubble() // other modes: no button, and no looking at the screen for it
+        val root = rootInActiveWindow
+        val inWhatsApp = root != null && isWhatsApp(root)
+        if (root != null && !inWhatsApp) reader.reset() // an explicit other app (not just a blink): forget the chat
+        val chatOpen = inWhatsApp && root!!.findAccessibilityNodeInfosByViewId("${root.packageName}:id/${WhatsAppIds.CHAT_NAME}").isNotEmpty()
+
+        // a single empty look is often just a screen transition: only believe "gone" after two in a row
+        misses = if (chatOpen) 0 else misses + 1
+        if (policy.showBubble(now, chatOpen || misses < 2 && bubble != null)) {
+            if (bubble == null) bubble = Bubble(this, ::captureNow, ::hideBubbleForToday).also { it.show() }
+            handler.removeCallbacks(pollBubble)
+            handler.postDelayed(pollBubble, POLL_MS) // while it is showing, notice when you leave WhatsApp
+        } else {
+            removeBubble()
         }
+    }
+
+    private fun removeBubble() {
+        handler.removeCallbacks(pollBubble)
+        bubble?.remove()
+        bubble = null
+    }
+
+    /** The button was tapped: send everything visible that was not sent before. */
+    private fun captureNow() {
+        val root = rootInActiveWindow
+        if (root == null || !isWhatsApp(root)) return toast("Open a WhatsApp chat first")
+        val config = TokenStore(this).load() ?: return toast("Not connected. Open ActionBrain, then Settings, then Phone messages.")
+
+        val node = toNode(root, 0, intArrayOf(MAX_NODES))
+        record(node)
+        val messages = reader.captureVisible(node, resources.displayMetrics.widthPixels)
+        if (messages.isEmpty()) return toast("Nothing new to capture")
+        messages.forEach { send(config, it) }
+        toast(if (messages.size == 1) "✓ 1 message captured" else "✓ ${messages.size} messages captured")
+    }
+
+    private fun hideBubbleForToday() {
+        val tomorrow = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, 1)
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        CaptureSettings(this).hideBubbleUntil(tomorrow)
+        removeBubble()
+        Toast.makeText(this, R.string.bubble_hidden_today, Toast.LENGTH_LONG).show()
+    }
+
+    // ---- shared ----
+
+    private fun isWhatsApp(root: AccessibilityNodeInfo) = root.packageName?.toString()?.let { it in PACKAGES } == true
+
+    private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+
+    private fun record(node: ScreenNode) {
+        ScreenStatus.lastStructure = ScreenStructure.dump(node)
+        ScreenStatus.lastSeenAt = System.currentTimeMillis()
+    }
+
+    private fun send(config: TokenStore.Config, m: ChatMessage) {
+        // your own message: the title is the chat it was written in. Someone else's: the title is who wrote it.
+        IntakeClient.send(this, config, Payload.message(if (m.mine) m.chat else m.sender, m.text, m.group, m.mine))
     }
 
     /** Copies the screen into plain nodes. Text is copied ONLY for the three parts we use; every other node keeps just its shape. */
@@ -73,6 +168,7 @@ class WhatsAppScreenService : AccessibilityService() {
     private companion object {
         val PACKAGES = setOf("com.whatsapp", "com.whatsapp.w4b")
         const val DEBOUNCE_MS = 600L
+        const val POLL_MS = 1500L
         const val MAX_DEPTH = 40
         const val MAX_NODES = 800
     }

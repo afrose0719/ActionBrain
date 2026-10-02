@@ -17,6 +17,7 @@ class WhatsAppListenerService : NotificationListenerService() {
         if (sbn.packageName !in PACKAGES) return
         val notification = sbn.notification
         if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return // the bundle header, not a message
+        if (!CaptureSettings(this).load().notificationsActive(System.currentTimeMillis())) return // switched off or paused in Settings
         val config = TokenStore(this).load() ?: return
 
         val extras = notification.extras

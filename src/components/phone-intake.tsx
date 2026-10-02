@@ -1,10 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Battery, Bell, Check, Copy, Eye, MessageSquare, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import { Battery, Bell, Check, Copy, Eye, MessageSquare, Pause, Play, RefreshCw, ShieldCheck, Smartphone, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { generateToken, hashToken, parseSenderList } from "@/lib/intake";
-import { getAndroidBridge, parseAndroidStatus, type AndroidBridge, type AndroidStatus } from "@/lib/android-bridge";
+import { getAndroidBridge, parseAndroidStatus, type AndroidBridge, type AndroidStatus, type ReadingMode } from "@/lib/android-bridge";
+
+const READING_CHOICES: { mode: ReadingMode; label: string; hint: string }[] = [
+  { mode: "auto", label: "Automatic", hint: "reads the open chat by itself and sends new messages" },
+  { mode: "tap", label: "On tap", hint: "a floating ActionBrain button appears over WhatsApp; tap it to capture what is on screen" },
+  { mode: "off", label: "Off", hint: "never reads the screen" },
+];
 
 type Intake = {
   token_hint: string | null;
@@ -57,6 +63,7 @@ export function PhoneIntake() {
   const [bridge, setBridge] = useState<AndroidBridge | null>(null);
   const [phone, setPhone] = useState<AndroidStatus | null>(null);
   const [structure, setStructure] = useState("");
+  const [now, setNow] = useState(0); // "the time of the last status read": the page must not call Date.now() while rendering
 
   const load = useCallback(async () => {
     const { data, error } = await createClient().from("intake_settings").select(COLUMNS).maybeSingle();
@@ -80,11 +87,23 @@ export function PhoneIntake() {
   // keep the "this phone" status fresh while the page is open (you switch on notification access in another screen and come back)
   useEffect(() => {
     if (!bridge || !intake) return;
-    const read = () => setPhone(parseAndroidStatus(bridge.status()));
+    const read = () => {
+      setPhone(parseAndroidStatus(bridge.status()));
+      setNow(Date.now());
+    };
     read();
     const timer = setInterval(read, 2000);
     return () => clearInterval(timer);
   }, [bridge, intake]);
+
+  // run a control change in the app, then show the new state straight away (instead of waiting for the next 2-second refresh)
+  function change(action: () => unknown) {
+    action();
+    if (bridge) {
+      setPhone(parseAndroidStatus(bridge.status()));
+      setNow(Date.now());
+    }
+  }
 
   async function createToken(replacing: boolean) {
     if (replacing && !confirm("Create a new token? The old one stops working immediately, so update your phone automation.")) return;
@@ -247,6 +266,88 @@ export function PhoneIntake() {
                         {phone.lastAt ? <> · last {new Date(phone.lastAt).toLocaleString()} ({phone.lastResult})</> : null}
                       </li>
                     </ul>
+                    {phone.controls && (
+                      <fieldset className="grid gap-3 rounded-md border border-line p-3">
+                        <legend className="px-1 font-medium">What to capture</legend>
+
+                        <label className="flex items-start gap-2">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 accent-brand-600"
+                            checked={phone.controls.notificationsOn}
+                            onChange={(e) => change(() => bridge.setNotificationsEnabled?.(e.target.checked))}
+                          />
+                          <span>
+                            Notifications <span className="text-ink-muted">(messages that arrive while you are not looking at that chat)</span>
+                          </span>
+                        </label>
+
+                        {phone.screenAvailable && (
+                          <div role="radiogroup" aria-label="Chat reading" className="grid gap-2">
+                            <p className="text-sm font-medium">
+                              Chat reading <span className="font-normal text-ink-muted">(while a chat is open)</span>
+                            </p>
+                            {READING_CHOICES.map((choice) => (
+                              <label key={choice.mode} className="flex items-start gap-2">
+                                <input
+                                  type="radio"
+                                  name="reading-mode"
+                                  className="mt-0.5 h-4 w-4 accent-brand-600"
+                                  checked={phone.controls?.readingMode === choice.mode}
+                                  onChange={() => change(() => bridge.setReadingMode?.(choice.mode))}
+                                />
+                                <span>
+                                  {choice.label} <span className="text-ink-muted">{choice.hint}</span>
+                                </span>
+                              </label>
+                            ))}
+                            {!phone.screenOn && phone.controls.readingMode !== "off" && (
+                              <p className="text-xs text-ink-muted">
+                                Chat reading also needs <strong>Turn on live chat reading</strong> above, so Android lets the app read the screen.
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          {phone.controls.pausedUntil > now ? (
+                            <>
+                              <span className="text-sm">
+                                Paused until {new Date(phone.controls.pausedUntil).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                              <button type="button" className="btn-primary btn-sm" onClick={() => change(() => bridge.pauseCapture?.(0))}>
+                                <Play size={14} />
+                                Resume
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button type="button" className="btn-secondary btn-sm" onClick={() => change(() => bridge.pauseCapture?.(60))}>
+                                <Pause size={14} />
+                                Pause for 1 hour
+                              </button>
+                              <button type="button" className="btn-secondary btn-sm" onClick={() => change(() => bridge.pauseCapture?.(480))}>
+                                Pause for 8 hours
+                              </button>
+                            </>
+                          )}
+                          {phone.controls.bubbleHidden && (
+                            <button type="button" className="btn-secondary btn-sm" onClick={() => change(() => bridge.showBubbleAgain?.())}>
+                              Show the floating button again
+                            </button>
+                          )}
+                          {bridge.addQuickSettingsTile && (
+                            <button type="button" className="btn-secondary btn-sm" onClick={() => bridge.addQuickSettingsTile?.()}>
+                              <Smartphone size={14} />
+                              Add Quick Settings tile
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-xs text-ink-muted">
+                          These switches only change what ActionBrain does. Android&rsquo;s own permissions stay as they are; remove those in Android Settings if you want them gone.
+                        </p>
+                      </fieldset>
+                    )}
                     <div className="flex flex-wrap gap-2">
                       {!phone.listening && (
                         <button type="button" className="btn-primary btn-sm" onClick={() => bridge.openNotificationAccess()}>
@@ -255,13 +356,13 @@ export function PhoneIntake() {
                         </button>
                       )}
                       {phone.screenAvailable && !phone.screenOn && (
-                        <button type="button" className="btn-secondary btn-sm" onClick={() => bridge.openScreenReadingSettings()}>
+                        <button type="button" className="btn-secondary btn-sm" onClick={() => bridge.openScreenReadingSettings?.()}>
                           <Eye size={14} />
                           Turn on live chat reading
                         </button>
                       )}
                       {phone.screenAvailable && phone.screenOn && (
-                        <button type="button" className="btn-secondary btn-sm" onClick={() => setStructure(bridge.screenStructure() || "Nothing seen yet. Open a WhatsApp chat, then come back and press this again.")}>
+                        <button type="button" className="btn-secondary btn-sm" onClick={() => setStructure(bridge.screenStructure?.() || "Nothing seen yet. Open a WhatsApp chat (in On tap mode, tap the floating button), then come back and press this again.")}>
                           <Eye size={14} />
                           Show what the app sees
                         </button>

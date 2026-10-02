@@ -40,8 +40,11 @@ class ChatReader {
     private var previous: List<String> = emptyList()
     private var groupChat = false
 
-    /** Everything seen on screen in this chat since it was opened. Nothing in here is ever sent twice, or sent at all if it was already there. */
+    /** Everything seen on screen in this chat since it was opened. Automatic reading never sends anything that was already there. */
     private val known = LinkedHashSet<String>()
+
+    /** What has actually been sent in this chat. The floating button skips only these, because tapping it is a deliberate "take it all". */
+    private val sent = LinkedHashSet<String>()
 
     /** Forget everything (the user left WhatsApp, or turned the service off). The next chat you open starts from a clean baseline. */
     @Synchronized
@@ -50,6 +53,7 @@ class ChatReader {
         previous = emptyList()
         groupChat = false
         known.clear()
+        sent.clear()
     }
 
     /**
@@ -61,8 +65,35 @@ class ChatReader {
      */
     @Synchronized
     fun read(root: ScreenNode, screenWidth: Int): List<ChatMessage> {
+        val look = look(root, screenWidth) ?: return emptyList()
+        val fresh = freshSince(look.messages, look.keys).filter { known.add(keyOf(it)) } // add() is false for a key already known
+        markSent(fresh)
+        remember(look.keys)
+        return fresh
+    }
+
+    /**
+     * For the floating button: everything visible on screen right now that has not been sent yet, in screen order.
+     * Unlike [read], the history on screen counts: the user pressed the button on purpose. Only what was actually SENT before (by this
+     * or by [read]) is skipped, and what is returned here is remembered so automatic reading does not send it again.
+     * Limit: lines are stamped with the time they reach ActionBrain, not the time shown in WhatsApp.
+     */
+    @Synchronized
+    fun captureVisible(root: ScreenNode, screenWidth: Int): List<ChatMessage> {
+        val look = look(root, screenWidth) ?: return emptyList()
+        val onThisScreen = HashSet<String>()
+        val fresh = look.messages.filter { keyOf(it) !in sent && onThisScreen.add(keyOf(it)) }
+        markSent(fresh)
+        remember(look.keys)
+        return fresh
+    }
+
+    private class Look(val messages: List<ChatMessage>, val keys: List<String>)
+
+    /** Reads the chat name and messages off the screen and keeps track of which chat this is. Null when no chat is open. */
+    private fun look(root: ScreenNode, screenWidth: Int): Look? {
         val title = findAll(root) { WhatsAppIds.matches(it, WhatsAppIds.CHAT_NAME) }.firstOrNull()?.text?.trim().orEmpty()
-        if (title.isEmpty()) return emptyList() // not inside a chat (the chat list, settings...): read nothing
+        if (title.isEmpty()) return null // not inside a chat (the chat list, settings...): read nothing
 
         val nodes = findAll(root) { WhatsAppIds.matches(it, WhatsAppIds.MESSAGE_TEXT) }.filter { !it.text.isNullOrBlank() }.sortedBy { it.top }
         if (title != chat) {
@@ -70,17 +101,23 @@ class ChatReader {
             groupChat = false
             previous = emptyList()
             known.clear()
+            sent.clear()
         }
         if (findAll(root) { WhatsAppIds.matches(it, WhatsAppIds.GROUP_MEMBER) }.isNotEmpty()) groupChat = true
 
         val messages = nodes.map { toMessage(it, root, title, screenWidth) }
-        val keys = messages.map(::keyOf)
+        return Look(messages, messages.map(::keyOf))
+    }
 
-        val fresh = freshSince(messages, keys).filter { known.add(keyOf(it)) } // add() is false for a key already known
+    private fun markSent(messages: List<ChatMessage>) {
+        messages.forEach { sent.add(keyOf(it)) }
+        while (sent.size > MAX_KNOWN) sent.remove(sent.first())
+    }
+
+    private fun remember(keys: List<String>) {
         known.addAll(keys)
         while (known.size > MAX_KNOWN) known.remove(known.first())
         previous = keys
-        return fresh
     }
 
     /** The messages after the point where the previous look lines up with this one. */

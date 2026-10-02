@@ -2,10 +2,15 @@ package app.actionbrain.android
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.StatusBarManager
+import android.content.ComponentName
 import android.content.Intent
+import android.graphics.drawable.Icon
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import android.webkit.JavascriptInterface
+import android.widget.Toast
 
 /**
  * What the ActionBrain website can ask this app to do, as window.ActionBrainAndroid.
@@ -36,11 +41,16 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
     @JavascriptInterface
     fun status(): String {
         val stats = Stats(activity)
+        val capture = CaptureSettings(activity).load()
         return "{\"app\":true,\"version\":" + Payload.quote(BuildConfig.VERSION_NAME) +
             ",\"configured\":" + (tokens.load() != null) +
             ",\"listening\":" + listenerEnabled() +
             ",\"screenAvailable\":" + BuildConfig.SCREEN_READING +
             ",\"screenOn\":" + (BuildConfig.SCREEN_READING && screenServiceEnabled()) +
+            ",\"notificationsOn\":" + capture.notifications +
+            ",\"readingMode\":" + Payload.quote(capture.reading) +
+            ",\"pausedUntil\":" + capture.pausedUntil +
+            ",\"bubbleHidden\":" + capture.bubbleHidden(System.currentTimeMillis()) +
             ",\"sent\":" + stats.sent + ",\"failed\":" + stats.failed + ",\"lastAt\":" + stats.lastAt +
             ",\"lastResult\":" + Payload.quote(stats.lastResult) + "}"
     }
@@ -62,6 +72,40 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
                 .setPositiveButton(R.string.screen_consent_agree) { _, _ -> launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
                 .setNegativeButton(R.string.screen_consent_cancel, null)
                 .show()
+        }
+    }
+
+    /** Switch notification capture on or off (the Android permission itself is not touched). */
+    @JavascriptInterface
+    fun setNotificationsEnabled(on: Boolean) = CaptureSettings(activity).setNotifications(on)
+
+    /** "off", "auto" or "tap". Anything else is refused and returns false. */
+    @JavascriptInterface
+    fun setReadingMode(mode: String?): Boolean = CaptureSettings(activity).setReading(mode)
+
+    /** Pause all capture for this many minutes (1 to 1440). 0 resumes. */
+    @JavascriptInterface
+    fun pauseCapture(minutes: Int) = CaptureSettings(activity).pauseFor(minutes)
+
+    /** Bring the floating button back after it was hidden for the day. */
+    @JavascriptInterface
+    fun showBubbleAgain() = CaptureSettings(activity).showBubbleAgain()
+
+    /** Android 13+ asks "Add tile?" right away; older versions get a short how-to. */
+    @JavascriptInterface
+    fun addQuickSettingsTile() {
+        activity.runOnUiThread {
+            if (Build.VERSION.SDK_INT >= 33) {
+                val manager = activity.getSystemService(StatusBarManager::class.java)
+                manager.requestAddTileService(
+                    ComponentName(activity, CaptureTileService::class.java),
+                    activity.getString(R.string.tile_label),
+                    Icon.createWithResource(activity, R.drawable.ic_tile),
+                    activity.mainExecutor,
+                ) { }
+            } else {
+                Toast.makeText(activity, R.string.tile_howto, Toast.LENGTH_LONG).show()
+            }
         }
     }
 

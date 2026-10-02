@@ -169,6 +169,88 @@ class ScreenReaderTest {
         assertTrue(r.read(screen("Rajesh", incoming("hi", 200), incoming("new", 300)), width).isEmpty()) // a fresh baseline after leaving WhatsApp
     }
 
+    // ---- the floating button: capture everything visible ----
+    @Test
+    fun tappingCapturesEverythingVisibleIncludingWhatWasAlreadyThere() {
+        val r = reader()
+        val screen = screen("Rajesh", incoming("Can you send the proposal by Friday?", 200), outgoing("Sure, I will send it tomorrow", 300))
+        assertEquals(
+            listOf(
+                ChatMessage("Rajesh", "Rajesh", "Can you send the proposal by Friday?", null, false),
+                ChatMessage("Rajesh", "You", "Sure, I will send it tomorrow", null, true),
+            ),
+            r.captureVisible(screen, width),
+        )
+    }
+
+    @Test
+    fun tappingTwiceSendsNothingTheSecondTime() {
+        val r = reader()
+        val screen = screen("Rajesh", incoming("one", 200), incoming("two", 300))
+        assertEquals(2, r.captureVisible(screen, width).size)
+        assertTrue(r.captureVisible(screen, width).isEmpty())
+    }
+
+    @Test
+    fun tappingAgainSendsOnlyWhatArrivedSince() {
+        val r = reader()
+        r.captureVisible(screen("Rajesh", incoming("one", 200), incoming("two", 300)), width)
+        val got = r.captureVisible(screen("Rajesh", incoming("one", 200), incoming("two", 300), incoming("three", 400)), width)
+        assertEquals(listOf("three"), got.map { it.text })
+    }
+
+    @Test
+    fun tappingAfterScrollingBackCapturesTheOlderMessagesOnScreen() {
+        val r = reader()
+        r.captureVisible(screen("Rajesh", incoming("new1", 200), incoming("new2", 300)), width)
+        assertEquals(listOf("old1", "old2"), r.captureVisible(screen("Rajesh", incoming("old1", 200), incoming("old2", 300)), width).map { it.text })
+    }
+
+    @Test
+    fun whatATapCapturedIsNotSentAgainByAutomaticReading() {
+        val r = reader()
+        r.captureVisible(screen("Rajesh", incoming("one", 200), incoming("two", 300)), width)
+        assertTrue(r.read(screen("Rajesh", incoming("one", 200), incoming("two", 300)), width).isEmpty())
+        assertEquals(listOf("three"), r.read(screen("Rajesh", incoming("one", 200), incoming("two", 300), incoming("three", 400)), width).map { it.text })
+    }
+
+    @Test
+    fun whatAutomaticReadingSentIsNotSentAgainByATap() {
+        val r = reader()
+        r.read(screen("Rajesh", incoming("one", 200)), width)
+        assertEquals(listOf("two"), r.read(screen("Rajesh", incoming("one", 200), incoming("two", 300)), width).map { it.text })
+        assertEquals(listOf("one"), r.captureVisible(screen("Rajesh", incoming("one", 200), incoming("two", 300)), width).map { it.text }) // "one" was only baseline history
+    }
+
+    @Test
+    fun tappingOutsideAChatCapturesNothing() {
+        assertTrue(reader().captureVisible(screen(null, incoming("a message but no chat name", 200)), width).isEmpty())
+    }
+
+    @Test
+    fun tappingOnAScreenWithTheSameTextTwiceSendsItOnce() {
+        assertEquals(1, reader().captureVisible(screen("Rajesh", incoming("ok", 200), incoming("ok", 300)), width).size)
+    }
+
+    @Test
+    fun tappingInAGroupCarriesMemberNamesAndYourOwnMessages() {
+        val got = reader().captureVisible(screen("Project Team", incoming("Update the deck", 200, "Anish"), outgoing("On it", 330)), width)
+        assertEquals(
+            listOf(
+                ChatMessage("Project Team", "Anish", "Update the deck", "Project Team", false),
+                ChatMessage("Project Team", "You", "On it", "Project Team", true),
+            ),
+            got,
+        )
+    }
+
+    @Test
+    fun tappingInADifferentChatStartsThatChatFresh() {
+        val r = reader()
+        r.captureVisible(screen("Rajesh", incoming("hello", 200)), width)
+        assertEquals(listOf("hello"), r.captureVisible(screen("Priya", incoming("hello", 200)), width).map { it.text })
+    }
+
     // ---- what it refuses to read ----
     @Test
     fun outsideAChatNothingIsReadAndTheBaselineSurvives() {

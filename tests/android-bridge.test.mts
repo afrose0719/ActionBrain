@@ -13,6 +13,11 @@ const fullBridge = () => ({
   takeSharedFile: () => "",
   openScreenReadingSettings: () => {},
   screenStructure: () => "",
+  setNotificationsEnabled: () => {},
+  setReadingMode: () => true,
+  pauseCapture: () => {},
+  showBubbleAgain: () => {},
+  addQuickSettingsTile: () => {},
   status: () => "{}",
   openNotificationAccess: () => {},
   openBatterySettings: () => {},
@@ -28,15 +33,23 @@ test("in an ordinary browser there is no bridge", () => {
   assert.equal(getAndroidBridge({ ActionBrainAndroid: "yes" }), null);
 });
 
-test("the bridge is recognised only when every method is there", () => {
+const CORE = ["isApp", "saveIntake", "clearIntake", "status", "openNotificationAccess", "openBatterySettings", "openAppInfo"];
+
+test("the bridge is recognised only when every core method is there", () => {
   const bridge = fullBridge();
   assert.equal(getAndroidBridge({ ActionBrainAndroid: bridge }), bridge);
-  for (const name of Object.keys(bridge)) {
+  for (const name of CORE) {
     const partial: Record<string, unknown> = { ...bridge };
     delete partial[name];
     assert.equal(getAndroidBridge({ ActionBrainAndroid: partial }), null, `missing ${name}`);
     assert.equal(getAndroidBridge({ ActionBrainAndroid: { ...bridge, [name]: "not a function" } }), null, `${name} not a function`);
   }
+});
+
+test("an older app without the newer methods is still recognised as the app", () => {
+  const older: Record<string, unknown> = {};
+  for (const name of CORE) older[name] = () => {};
+  assert.equal(getAndroidBridge({ ActionBrainAndroid: older }), older);
 });
 
 // ---- the status text ----
@@ -51,7 +64,33 @@ test("a good status is read", () => {
     failed: 1,
     lastAt: 1790000000000,
     lastResult: "stored",
+    controls: null, // this status came from an app too old to have capture controls
   });
+});
+
+const goodControls = { notificationsOn: true, readingMode: "tap", pausedUntil: 0, bubbleHidden: false };
+
+test("the capture controls are read when the app sends them", () => {
+  const s = parseAndroidStatus(JSON.stringify({ ...goodStatus, ...goodControls, pausedUntil: 1790000999000.7, bubbleHidden: true, notificationsOn: false }));
+  assert.deepEqual(s?.controls, { notificationsOn: false, readingMode: "tap", pausedUntil: 1790000999000, bubbleHidden: true });
+  for (const mode of ["off", "auto", "tap"]) assert.equal(parseAndroidStatus(JSON.stringify({ ...goodStatus, ...goodControls, readingMode: mode }))?.controls?.readingMode, mode);
+});
+
+test("capture controls that are present but wrong are refused, never half-read", () => {
+  for (const bad of [
+    { readingMode: "always" },
+    { readingMode: "AUTO" },
+    { readingMode: 1 },
+    { readingMode: null },
+    { notificationsOn: "yes" },
+    { notificationsOn: undefined },
+    { pausedUntil: -1 },
+    { pausedUntil: "0" },
+    { pausedUntil: null },
+    { bubbleHidden: 1 },
+  ]) {
+    assert.equal(parseAndroidStatus(JSON.stringify({ ...goodStatus, ...goodControls, ...bad })), null, JSON.stringify(bad));
+  }
 });
 
 test("anything that is not exactly the expected shape is refused", () => {
@@ -122,7 +161,7 @@ test("the inbox uses ONE import function for both the file picker and the app ha
   const inbox = read("src/app/(app)/inbox/page.tsx");
   assert.equal((inbox.match(/importFrom\(/g) ?? []).length, 2); // the file picker and the app hand-off, both through src/lib/import/chat.ts
   assert.ok(inbox.includes('get("shared") !== "file"'));
-  assert.ok(inbox.includes("takeSharedFile()"));
+  assert.ok(inbox.includes("takeSharedFile?.()"));
 });
 
 // ---- the Kotlin side and this side must agree ----
@@ -138,7 +177,7 @@ test("the app and the website use the same token format", () => {
 
 test("every method the website calls exists in the app's bridge, and nothing extra is exposed", () => {
   const exposed = [...kotlinBridge.matchAll(/@JavascriptInterface\s+fun (\w+)/g)].map((m) => m[1]).sort();
-  assert.deepEqual(exposed, ["clearIntake", "isApp", "openAppInfo", "openBatterySettings", "openNotificationAccess", "openScreenReadingSettings", "saveIntake", "screenStructure", "status", "takeSharedFile"]);
+  assert.deepEqual(exposed, ["addQuickSettingsTile", "clearIntake", "isApp", "openAppInfo", "openBatterySettings", "openNotificationAccess", "openScreenReadingSettings", "pauseCapture", "saveIntake", "screenStructure", "setNotificationsEnabled", "setReadingMode", "showBubbleAgain", "status", "takeSharedFile"]);
   const website = Object.keys(fullBridge()).sort();
   assert.deepEqual(exposed, website);
 });
@@ -221,5 +260,72 @@ test("the consent dialog is native, comes before Android's settings open, and sa
 test("the website only offers live chat reading when the app says it has it", () => {
   const panel = read("src/components/phone-intake.tsx");
   assert.ok(panel.includes("phone.screenAvailable && !phone.screenOn"));
-  assert.ok(panel.includes("openScreenReadingSettings()"));
+  assert.ok(panel.includes("openScreenReadingSettings?.()"));
+});
+
+// ---- capture modes, the floating button, the pause and the tile ----
+const policy = read("android/app/src/main/java/app/actionbrain/android/CaptureSettings.kt");
+const listener = read("android/app/src/main/java/app/actionbrain/android/WhatsAppListenerService.kt");
+const tile = read("android/app/src/main/java/app/actionbrain/android/CaptureTileService.kt");
+const bubble = read("android/app/src/full/java/app/actionbrain/android/Bubble.kt");
+
+test("the app refuses any reading mode that is not off, auto or tap", () => {
+  assert.ok(policy.includes('const val OFF = "off"') && policy.includes('const val AUTO = "auto"') && policy.includes('const val TAP = "tap"'));
+  assert.ok(kotlinBridge.includes("fun setReadingMode(mode: String?): Boolean = CaptureSettings(activity).setReading(mode)"));
+  assert.ok(policy.includes("CaptureMode.parse(mode) ?: return false"));
+});
+
+test("the notification service obeys the switch and the pause", () => {
+  assert.ok(listener.includes("notificationsActive(System.currentTimeMillis())"));
+  // the check comes before anything is read or sent
+  assert.ok(listener.indexOf("notificationsActive") < listener.indexOf("IntakeClient.send"));
+});
+
+test("automatic reading happens only in auto mode; tap mode reads only when the button is tapped", () => {
+  assert.ok(screenService.includes("readingMode(now) == CaptureMode.AUTO) autoRead()"));
+  assert.equal((screenService.match(/reader\.read\(/g) ?? []).length, 1, "reader.read is called in one place only");
+  assert.equal((screenService.match(/reader\.captureVisible\(/g) ?? []).length, 1);
+  assert.ok(screenService.indexOf("fun captureNow") < screenService.indexOf("reader.captureVisible("));
+  assert.ok(screenService.includes("readingMode(now) != CaptureMode.TAP) return removeBubble()"));
+});
+
+test("the floating button needs no extra permission: it is an accessibility overlay", () => {
+  assert.ok(bubble.includes("TYPE_ACCESSIBILITY_OVERLAY"));
+  assert.ok(bubble.includes("FLAG_NOT_FOCUSABLE"));
+  for (const file of [manifest, fullManifest, bubble, screenService]) {
+    assert.ok(!file.includes("SYSTEM_ALERT_WINDOW"), "must not ask for 'display over other apps'");
+    assert.ok(!file.includes("TYPE_APPLICATION_OVERLAY"));
+  }
+});
+
+test("the floating button can be reached by TalkBack and moved without blocking the keyboard", () => {
+  assert.ok(bubble.includes("contentDescription"));
+  assert.ok(bubble.includes("setOnClickListener"));
+  assert.ok(bubble.includes("performClick()"));
+});
+
+test("the Quick Settings tile only changes the pause time, and is protected by the system permission", () => {
+  assert.ok(manifest.includes('android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"'));
+  assert.ok(manifest.includes("android.service.quicksettings.action.QS_TILE"));
+  assert.ok(tile.includes("pauseFor("));
+  assert.ok(!tile.includes("setReading") && !tile.includes("setNotifications"));
+  // the tile is not a permission request: the manifest still lists only the two permissions
+  const perms = [...manifest.matchAll(/<uses-permission android:name="([^"]+)"/g)].map((m) => m[1]).sort();
+  assert.deepEqual(perms, ["android.permission.INTERNET", "android.permission.RECORD_AUDIO"]);
+});
+
+test("the settings panel offers the controls only to an app that has them", () => {
+  const panel = read("src/components/phone-intake.tsx");
+  assert.ok(panel.includes("phone.controls && ("));
+  assert.ok(panel.includes('role="radiogroup"'));
+  for (const call of ["setNotificationsEnabled?.(", "setReadingMode?.(", "pauseCapture?.(", "showBubbleAgain?.(", "addQuickSettingsTile?.("]) {
+    assert.ok(panel.includes(call), call);
+  }
+  assert.ok(!panel.includes("Date.now()") || !panel.includes("pausedUntil > Date.now()"), "the page must not read the clock while rendering");
+});
+
+test("every reading mode the page offers is one the app accepts", () => {
+  const panel = read("src/components/phone-intake.tsx");
+  const offered = [...panel.matchAll(/\{ mode: "(\w+)", label:/g)].map((m) => m[1]).sort();
+  assert.deepEqual(offered, ["auto", "off", "tap"]);
 });
