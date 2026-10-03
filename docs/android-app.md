@@ -95,9 +95,15 @@ What it captures:
 - They land in the Inbox as **Teams** items: "Teams chat with Asha", or "Teams group: Sprint chat", grouped into one item per conversation exactly like WhatsApp. Your own messages read "You (to Asha): ...".
 - The WhatsApp filters in Settings ("ignore groups", "only these senders") do **not** apply to Teams.
 
-**Two things that are not verified yet, and what to do:**
-1. **Teams' screen part names are guesses.** Reading an open Teams chat needs the names Teams gives its chat title and message text. Mine (in `ChatApps.kt`) are educated guesses, not checked against a real Teams screen. If **Show what the app sees** finds nothing in a Teams chat, send me that text (it has no message text), and I fix the one list. **Notifications do not depend on this.**
-2. **Notification format.** Teams' notifications are filtered by "uses the messaging layout, or is in the message category". If messages you expect do not arrive, press **Show what notifications look like** (it shows each notification's category, channel and the *lengths* of its text, never the words) and send it to me.
+**What is verified about reading a Teams chat, and what is not.** In version 0.5.1 the screen names come from a **real Teams chat screen** (Android 16, Teams 1416; read over USB as ids, classes, positions and text lengths, never any message text), not from guesses:
+- Verified: the chat title (`action_bar_title_text`), the message bubble (`bubble_content`), the quoted-reply block (`reply_container`), the incoming message row (`chat_message_from_other`), the sender's name at the start of a row's description, and the compose box (`message_area`).
+- Teams gives the message text **no id**: it is an unnamed text inside the bubble. The reader finds it by structure, and skips the quoted reply that can sit in the same bubble.
+- A chat counts as open only when its **compose box** is on screen too, because Teams' chat list shares the same title bar.
+- A one-to-one chat is recognised because the sender's name equals the chat's name; a group because an incoming sender is someone else.
+- **Not verified:** the id of an **outgoing** row (guessed; if wrong, the position of the text on screen decides, as for WhatsApp), and how a **group** chat looks (the sender is read from the row description either way). Teams can rename any of this in an update.
+- If reading finds nothing in a Teams chat, **Show what the app sees** shows the real names (no message text); send it to me.
+
+**Notifications:** Teams' notifications are filtered by "uses the messaging layout, or is in the message category". They are not verified on your phone either. If messages you expect do not arrive, press **Show what notifications look like** (category, channel and the *lengths* of the text, never the words) and send it to me.
 
 **A limit to be aware of:** Teams may **hold back mobile notifications while you are active on the desktop app**. If so, the phone sees nothing during desk time. That is how Teams decides, not something the app can change, and it is why route B (`microsoft-teams-setup.md`) exists. Please test it: while using Teams on your computer, does a colleague's message reach your phone?
 

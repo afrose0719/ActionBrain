@@ -165,44 +165,4 @@ class TeamsSupportTest {
     fun theSourceCannotBreakOutOfTheJson() {
         assertEquals("{\"title\":\"a\",\"text\":\"b\",\"source\":\"x\\\"},{\\\"evil\"}", Payload.message("a", "b", null, false, "x\"},{\"evil"))
     }
-
-    // ---- Teams reading uses its own screen-part names ----
-    private fun teamsScreen(title: String, vararg rows: Pair<String, Int>) = ScreenNode(
-        null, "android.widget.FrameLayout", null, 0, 0, 1000, 2000,
-        listOf(ScreenNode("com.microsoft.teams:id/toolbar_title", "TextView", title, 100, 10, 600, 60)) +
-            rows.map { (text, top) -> ScreenNode(null, "LinearLayout", null, 0, top, 1000, top + 80, listOf(ScreenNode("com.microsoft.teams:id/message_body", "TextView", text, 20, top, 420, top + 50))) },
-    )
-
-    @Test
-    fun theTeamsReaderFindsTeamsMessagesAndSendsOnlyNewOnes() {
-        val reader = ChatReader(teams.ids)
-        assertTrue(reader.read(teamsScreen("Asha", "hello" to 200), 1000).isEmpty()) // baseline
-        val got = reader.read(teamsScreen("Asha", "hello" to 200, "Can you review the doc?" to 300), 1000)
-        assertEquals(listOf("Can you review the doc?"), got.map { it.text })
-        assertEquals("Asha", got.single().sender)
-    }
-
-    @Test
-    fun theWhatsAppReaderIgnoresTeamsScreensAndTheOtherWayRound() {
-        assertTrue(ChatReader(whatsapp.ids).captureVisible(teamsScreen("Asha", "hello" to 200), 1000).isEmpty())
-        val whatsappScreen = ScreenNode(
-            null, null, null, 0, 0, 1000, 2000,
-            listOf(
-                ScreenNode("com.whatsapp:id/conversation_contact_name", "TextView", "Rajesh", 100, 10, 600, 60),
-                ScreenNode("com.whatsapp:id/message_text", "TextView", "hi", 20, 200, 420, 250),
-            ),
-        )
-        assertTrue(ChatReader(teams.ids).captureVisible(whatsappScreen, 1000).isEmpty())
-    }
-
-    @Test
-    fun onlyTheNamedPartsOfTheRightAppAreCopiedFromTheScreen() {
-        assertTrue(teams.ids.wanted("com.microsoft.teams:id/message_body"))
-        assertTrue(teams.ids.wanted("com.microsoft.teams:id/toolbar_title"))
-        assertFalse(teams.ids.wanted("com.microsoft.teams:id/compose_box"))
-        assertFalse(teams.ids.wanted("com.microsoft.teams:id/"))
-        assertFalse(teams.ids.wanted(null))
-        assertFalse(teams.ids.wanted("message_body")) // no id prefix: not a real resource id
-        assertFalse(whatsapp.ids.wanted("com.whatsapp:id/entry")) // the box you type in
-    }
 }

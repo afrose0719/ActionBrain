@@ -22,6 +22,8 @@ data class ScreenNode(
     val right: Int,
     val bottom: Int,
     val children: List<ScreenNode> = emptyList(),
+    /** For a message row: the sender's name, taken from the start of its description (see [authorFromDescription]). */
+    val author: String? = null,
 )
 
 /** mine = written by you. For your own messages [chat] is where you wrote it; for others, [sender] is who wrote it. */
@@ -87,7 +89,10 @@ class ChatReader(private val ids: AppIds = ChatApps.WHATSAPP.ids) {
         val title = findAll(root) { ids.isChatName(it) }.firstOrNull()?.text?.trim().orEmpty()
         if (title.isEmpty()) return null // not inside a chat (the chat list, settings...): read nothing
 
-        val nodes = findAll(root) { ids.isMessageText(it) }.filter { !it.text.isNullOrBlank() }.sortedBy { it.top }
+        // some apps (Teams) have the same title bar on their chat LIST: a chat is only open if its compose box is on screen too
+        if (ids.requires.isNotEmpty() && findAll(root) { ids.isRequired(it) }.isEmpty()) return null
+
+        val nodes = messageNodes(root).sortedBy { it.top }
         if (title != chat) {
             chat = title
             groupChat = false
@@ -96,6 +101,11 @@ class ChatReader(private val ids: AppIds = ChatApps.WHATSAPP.ids) {
             sent.clear()
         }
         if (findAll(root) { ids.isGroupMember(it) }.isNotEmpty()) groupChat = true
+        // where the app names the author of each message (Teams): in a one-to-one chat the author is the chat's own name,
+        // so someone else's name on an incoming message means it is a group
+        if (!groupChat && ids.authorFrom.isNotEmpty() &&
+            nodes.any { n -> !outgoing(n, root, screenWidth) && authorOf(n, root)?.let { !it.trim().equals(title, ignoreCase = true) } == true }
+        ) groupChat = true
 
         val messages = nodes.map { toMessage(it, root, title, screenWidth) }
         return Look(messages, messages.map(::keyOf))
@@ -127,13 +137,54 @@ class ChatReader(private val ids: AppIds = ChatApps.WHATSAPP.ids) {
         return emptyList()
     }
 
+    /** The text nodes that are messages: those with the app's message-text id, and the unnamed texts in message bubbles (not quoted replies). */
+    private fun messageNodes(root: ScreenNode): List<ScreenNode> {
+        val out = ArrayList<ScreenNode>()
+        out += findAll(root) { ids.isMessageText(it) && !it.text.isNullOrBlank() }
+        for (bubble in findAll(root) { ids.isBubble(it) }) collectBubbleText(bubble, out)
+        return out
+    }
+
+    private fun collectBubbleText(node: ScreenNode, out: MutableList<ScreenNode>) {
+        for (child in node.children) {
+            if (ids.isQuote(child)) continue // a quoted earlier message, not a new one
+            if (child.id == null && !child.text.isNullOrBlank()) out += child
+            collectBubbleText(child, out)
+        }
+    }
+
+    /** Who wrote it: the message's row says so when the app marks it; otherwise it is where the text sits on screen. */
+    private fun outgoing(node: ScreenNode, root: ScreenNode, width: Int): Boolean {
+        var ancestor: ScreenNode? = parentOf(root, node)
+        var steps = 0
+        while (ancestor != null && steps < 6) {
+            if (ids.isOutgoingRow(ancestor)) return true
+            if (ids.isIncomingRow(ancestor)) return false
+            ancestor = parentOf(root, ancestor)
+            steps++
+        }
+        return isOutgoing(node, width)
+    }
+
+    /** The author named on the message's row (a few levels up), if the app puts it there. */
+    private fun authorOf(node: ScreenNode, root: ScreenNode): String? {
+        var ancestor: ScreenNode? = parentOf(root, node)
+        var steps = 0
+        while (ancestor != null && steps < 6) {
+            ancestor.author?.let { return it }
+            ancestor = parentOf(root, ancestor)
+            steps++
+        }
+        return null
+    }
+
     private fun toMessage(node: ScreenNode, root: ScreenNode, title: String, width: Int): ChatMessage {
         val text = node.text!!.trim()
-        val mine = isOutgoing(node, width)
+        val mine = outgoing(node, root, width)
         val group = if (groupChat) title else null
         val sender = when {
             mine -> "You"
-            groupChat -> memberName(node, root) ?: "Unknown"
+            groupChat -> authorOf(node, root) ?: memberName(node, root) ?: "Unknown"
             else -> title
         }
         return ChatMessage(chat = title, sender = sender, text = text, group = group, mine = mine)

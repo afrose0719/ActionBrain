@@ -257,17 +257,43 @@ test("the service is read-only and scoped to the supported chat apps, by Android
   }
 });
 
-test("the service reads message text only for the three named parts of the app in front, and never acts on the screen", () => {
-  assert.ok(screenService.includes("val wanted = app.ids.wanted(id)"));
+test("the service copies text only where the reader needs it, and never acts on the screen", () => {
+  // named parts: only the three kinds in the app's own list
+  assert.ok(screenService.includes("val copyText = app.ids.wanted(id) || (inBubble && !inQuote && unnamedText)"));
   const apps = read("android/app/src/main/java/app/actionbrain/android/ChatApps.kt");
-  const wanted = apps.slice(apps.indexOf("fun wanted("), apps.indexOf("private fun matches"));
+  const wanted = apps.slice(apps.indexOf("fun wanted("), apps.indexOf("fun isBubbleId"));
   for (const list of ["chatName", "messageText", "groupMember"]) assert.ok(wanted.includes(`name in ${list}`), list);
-  assert.ok(!/name in (?!chatName|messageText|groupMember)/.test(wanted), "only those three kinds of part");
+  assert.ok(!/name in (?!chatName|messageText|groupMember)/.test(wanted), "only those three kinds of named part");
+  // unnamed text: only inside a message bubble, never inside a quoted reply, and only a text view (not the box you type in)
+  assert.ok(screenService.includes('val unnamedText = id == null && info.className?.toString()?.endsWith("TextView") == true'));
+  assert.ok(!screenService.includes("EditText"), "the typing box is never copied");
+  // the sender's name is cut from the description at the source: the rest of it repeats the message and is never copied
+  assert.ok(screenService.includes("authorFromDescription(info.contentDescription)"));
+  assert.ok(!screenService.includes("contentDescription?.toString()"), "the whole description is never copied");
   for (const action of ["performAction", "dispatchGesture", "ACTION_CLICK", "ACTION_SET_TEXT", "performGlobalAction", "takeScreenshot"]) {
     assert.ok(!screenService.includes(action), `must not call ${action}`);
   }
   // an app is read only if it is one we support AND the user switched it on
   assert.ok(screenService.includes("policy.appActive(app.source)"));
+});
+
+test("the Teams screen names come from a real Teams screen, not guesses", () => {
+  const apps = read("android/app/src/main/java/app/actionbrain/android/ChatApps.kt");
+  const teams = apps.slice(apps.indexOf("val TEAMS = ChatApp("));
+  for (const real of ['chatName = listOf("action_bar_title_text")', 'bubble = listOf("bubble_content")', 'quoted = listOf("reply_container")', 'authorFrom = listOf("rich_text_layout")', 'incomingRow = listOf("chat_message_from_other")', 'requires = listOf("message_area")']) {
+    assert.ok(teams.includes(real), real);
+  }
+  // the earlier guesses must be gone
+  for (const guess of ["toolbar_title", "chat_title", "conversation_title", "message_body", "message_content", "chat_message_text", "author_name"]) {
+    assert.ok(!teams.slice(0, teams.indexOf("val all =")).includes(`"${guess}"`), `guess ${guess} must be removed`);
+  }
+  assert.ok(apps.includes("NOT verified: the id of an OUTGOING row"), "what is still unverified is stated in the code");
+});
+
+test("the chat list is not mistaken for a chat: Teams needs its compose box on screen too", () => {
+  const reader = read("android/app/src/main/java/app/actionbrain/android/ScreenReader.kt");
+  assert.ok(reader.includes("ids.requires.isNotEmpty() && findAll(root) { ids.isRequired(it) }.isEmpty()) return null"));
+  assert.ok(screenService.includes("(app.ids.requires.isEmpty() || onScreen(app.ids.requires))"));
 });
 
 test("the consent dialog is native, comes before Android's settings open, and says what is read and what happens to it", () => {

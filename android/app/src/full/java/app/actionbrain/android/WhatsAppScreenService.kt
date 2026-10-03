@@ -101,7 +101,8 @@ class WhatsAppScreenService : AccessibilityService() {
         val root = rootInActiveWindow
         val app = activeApp(root, policy)
         if (root != null && ChatApps.forPackage(root.packageName?.toString()) == null) readers.values.forEach { it.reset() } // an explicit other app (not just a blink)
-        val chatOpen = app != null && root != null && app.ids.chatName.any { root.findAccessibilityNodeInfosByViewId("${root.packageName}:id/$it").isNotEmpty() }
+        fun onScreen(names: List<String>) = root != null && names.any { root.findAccessibilityNodeInfosByViewId("${root.packageName}:id/$it").isNotEmpty() }
+        val chatOpen = app != null && onScreen(app.ids.chatName) && (app.ids.requires.isEmpty() || onScreen(app.ids.requires))
 
         // a single empty look is often just a screen transition: only believe "gone" after two in a row
         misses = if (chatOpen) 0 else misses + 1
@@ -159,21 +160,31 @@ class WhatsAppScreenService : AccessibilityService() {
         IntakeClient.send(this, config, Payload.message(if (m.mine) m.chat else m.sender, m.text, m.group, m.mine, app.source))
     }
 
-    /** Copies the screen into plain nodes. Text is copied ONLY for the three parts this app's reader uses; every other node keeps just its shape. */
-    private fun toNode(app: ChatApp, info: AccessibilityNodeInfo, depth: Int, budget: IntArray): ScreenNode {
+    /**
+     * Copies the screen into plain nodes. Text is copied ONLY where this app's reader needs it:
+     *  - the named parts (chat name, WhatsApp's message text and group member names), and
+     *  - in an app that gives its message text no id (Teams): the unnamed text inside a message bubble, but never inside a quoted reply.
+     * For a Teams message row only the sender's NAME is taken from its description (the rest repeats the message and is not copied).
+     * Every other node keeps just its shape. The box you type in is never copied.
+     */
+    private fun toNode(app: ChatApp, info: AccessibilityNodeInfo, depth: Int, budget: IntArray, inBubble: Boolean = false, inQuote: Boolean = false): ScreenNode {
         budget[0]--
         val bounds = Rect().also { info.getBoundsInScreen(it) }
         val id = info.viewIdResourceName
-        val wanted = app.ids.wanted(id)
+        val unnamedText = id == null && info.className?.toString()?.endsWith("TextView") == true
+        val copyText = app.ids.wanted(id) || (inBubble && !inQuote && unnamedText)
+        val bubble = inBubble || app.ids.isBubbleId(id)
+        val quote = inQuote || app.ids.isQuoteId(id)
         val children = ArrayList<ScreenNode>()
         if (depth < MAX_DEPTH) {
             for (i in 0 until info.childCount) {
                 if (budget[0] <= 0) break
                 val child = info.getChild(i) ?: continue
-                children += toNode(app, child, depth + 1, budget)
+                children += toNode(app, child, depth + 1, budget, bubble, quote)
             }
         }
-        return ScreenNode(id, info.className?.toString(), if (wanted) info.text?.toString() else null, bounds.left, bounds.top, bounds.right, bounds.bottom, children)
+        val author = if (app.ids.isAuthorId(id)) authorFromDescription(info.contentDescription) else null
+        return ScreenNode(id, info.className?.toString(), if (copyText) info.text?.toString() else null, bounds.left, bounds.top, bounds.right, bounds.bottom, children, author)
     }
 
     private companion object {
