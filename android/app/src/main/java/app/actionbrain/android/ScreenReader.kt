@@ -82,6 +82,27 @@ class ChatReader(private val ids: AppIds = ChatApps.WHATSAPP.ids) {
         return fresh
     }
 
+    /**
+     * What this reader makes of a screen, in words and COUNTS only (never any message text). Shown in "Show what the app sees" so that a
+     * problem such as "no chat box found" is visible at once. Changes nothing.
+     */
+    fun diagnose(root: ScreenNode, screenWidth: Int): String {
+        val title = findAll(root) { ids.isChatName(it) }.firstOrNull()?.text?.trim().orEmpty()
+        val box = if (ids.requires.isEmpty()) "not needed" else if (findAll(root) { ids.isRequired(it) }.isEmpty()) "MISSING" else "found"
+        val nodes = messageNodes(root)
+        val mine = nodes.count { outgoing(it, root, screenWidth) }
+        val verdict = when {
+            title.isEmpty() -> "NOT a chat (no chat title found)"
+            box == "MISSING" -> "NOT a chat (no compose box found)"
+            nodes.isEmpty() -> "a chat, but NO message text was found"
+            else -> "a chat with ${nodes.size} message(s) read"
+        }
+        return "reading: $verdict\nchat title: ${if (title.isEmpty()) "MISSING" else "found, ${title.length} chars"}, compose box: $box\n" +
+            "messages: ${nodes.size} (yours ${mine}, others ${nodes.size - mine}), screen nodes: ${count(root)}"
+    }
+
+    private fun count(node: ScreenNode): Int = 1 + node.children.sumOf { count(it) }
+
     private class Look(val messages: List<ChatMessage>, val keys: List<String>)
 
     /** Reads the chat name and messages off the screen and keeps track of which chat this is. Null when no chat is open. */

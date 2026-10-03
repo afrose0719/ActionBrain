@@ -85,7 +85,7 @@ class WhatsAppScreenService : AccessibilityService() {
         }
 
         val node = toNode(app, root, 0, intArrayOf(MAX_NODES))
-        record(node)
+        record(app, node)
 
         val config = TokenStore(this).load() ?: return // not connected yet: nothing is sent
         readers.getValue(app.source).read(node, resources.displayMetrics.widthPixels).forEach { send(config, app, it) }
@@ -125,15 +125,15 @@ class WhatsAppScreenService : AccessibilityService() {
     private fun captureNow() {
         val root = rootInActiveWindow
         val app = activeApp(root, CaptureSettings(this).load())
-        if (root == null || app == null) return toast("Open a chat in WhatsApp or Teams first")
-        val config = TokenStore(this).load() ?: return toast("Not connected. Open ActionBrain, then Settings, then Phone messages.")
+        if (root == null || app == null) return feedback("!", "Open a chat in WhatsApp or Teams first")
+        val config = TokenStore(this).load() ?: return feedback("!", "Not connected. Open ActionBrain, then Settings, then Phone messages.")
 
         val node = toNode(app, root, 0, intArrayOf(MAX_NODES))
-        record(node)
+        record(app, node)
         val messages = readers.getValue(app.source).captureVisible(node, resources.displayMetrics.widthPixels)
-        if (messages.isEmpty()) return toast("Nothing new to capture")
+        if (messages.isEmpty()) return feedback("0", "Nothing new to capture")
         messages.forEach { send(config, app, it) }
-        toast(if (messages.size == 1) "✓ 1 message captured" else "✓ ${messages.size} messages captured")
+        feedback("✓${messages.size}", if (messages.size == 1) "✓ 1 message captured" else "✓ ${messages.size} messages captured")
     }
 
     private fun hideBubbleForToday() {
@@ -148,10 +148,16 @@ class WhatsAppScreenService : AccessibilityService() {
 
     // ---- shared ----
 
-    private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+    /** Android does not reliably show a message from an accessibility service, so the result is also shown on the button itself. */
+    private fun feedback(onButton: String, text: String) {
+        bubble?.flash(onButton)
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+    }
 
-    private fun record(node: ScreenNode) {
-        ScreenStatus.lastStructure = ScreenStructure.dump(node)
+    /** Keeps the latest picture for "Show what the app sees": a plain-words verdict with counts, then the structure. No message text in either. */
+    private fun record(app: ChatApp, node: ScreenNode) {
+        val verdict = readers.getValue(app.source).diagnose(node, resources.displayMetrics.widthPixels)
+        ScreenStatus.lastStructure = "${app.label}\n$verdict\n\n${ScreenStructure.dump(node)}"
         ScreenStatus.lastSeenAt = System.currentTimeMillis()
     }
 

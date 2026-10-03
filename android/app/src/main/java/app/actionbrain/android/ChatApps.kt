@@ -89,8 +89,8 @@ object ChatApps {
 
     /**
      * Microsoft Teams. These names come from the STRUCTURE of a real Teams chat screen (ids, classes and positions only, no message text),
-     * Android 16, Teams version 1416. Verified: the chat title, the message bubble, the quoted-reply block, the incoming row and the
-     * compose box. NOT verified: the id of an OUTGOING row (the guesses below fall back to the text's position on screen if wrong) and
+     * Android 16, Teams version 1416. Verified, also against what a standard accessibility service (not just a debugging tool) can see: the chat title, the message bubble,
+     * the quoted-reply block, the incoming row and the compose box. NOT verified: the id of an OUTGOING row (the guesses below fall back to the text's position on screen if wrong) and
      * what a group chat looks like (the sender is read from the row description either way). Teams can rename any of this in an update.
      */
     val TEAMS = ChatApp(
@@ -106,7 +106,9 @@ object ChatApps {
             authorFrom = listOf("rich_text_layout"),
             incomingRow = listOf("chat_message_from_other"),
             outgoingRow = listOf("chat_message_from_me", "chat_message_from_self", "chat_message_from_current_user"),
-            requires = listOf("message_area"),
+            // a real accessibility service does NOT see the "message_area" container (Teams marks it not important for accessibility), but it does
+            // see the compose box itself; either one proves a chat screen (the chat list has neither)
+            requires = listOf("message_area_edit_text", "message_area"),
         ),
     )
 

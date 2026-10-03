@@ -105,6 +105,13 @@ class Bubble(private val service: AccessibilityService, private val onTap: () ->
         }
     }
 
+    /** Shows [text] on the button for a moment (a count, "0" or "!"), because Android does not reliably show a message from this kind of service. */
+    fun flash(text: String) {
+        view.text = text
+        handler.removeCallbacksAndMessages(FLASH)
+        handler.postAtTime({ view.text = "A" }, FLASH, android.os.SystemClock.uptimeMillis() + 1800)
+    }
+
     fun show() {
         if (added) return
         added = runCatching { windows.addView(view, params) }.isSuccess
@@ -117,6 +124,7 @@ class Bubble(private val service: AccessibilityService, private val onTap: () ->
     }
 
     private companion object {
+        val FLASH = Any()
         const val SIZE_DP = 52
     }
 }

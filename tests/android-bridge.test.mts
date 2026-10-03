@@ -280,7 +280,7 @@ test("the service copies text only where the reader needs it, and never acts on 
 test("the Teams screen names come from a real Teams screen, not guesses", () => {
   const apps = read("android/app/src/main/java/app/actionbrain/android/ChatApps.kt");
   const teams = apps.slice(apps.indexOf("val TEAMS = ChatApp("));
-  for (const real of ['chatName = listOf("action_bar_title_text")', 'bubble = listOf("bubble_content")', 'quoted = listOf("reply_container")', 'authorFrom = listOf("rich_text_layout")', 'incomingRow = listOf("chat_message_from_other")', 'requires = listOf("message_area")']) {
+  for (const real of ['chatName = listOf("action_bar_title_text")', 'bubble = listOf("bubble_content")', 'quoted = listOf("reply_container")', 'authorFrom = listOf("rich_text_layout")', 'incomingRow = listOf("chat_message_from_other")', 'requires = listOf("message_area_edit_text", "message_area")']) {
     assert.ok(teams.includes(real), real);
   }
   // the earlier guesses must be gone
@@ -402,4 +402,24 @@ test("the settings page offers the app switches only to an app that has them", (
   assert.ok(panel.includes("setAppEnabled?.(choice.source, e.target.checked)"));
   const offered = [...panel.matchAll(/source: "(\w+)",\s*label/g)].map((m) => m[1]).sort();
   assert.deepEqual(offered, ["teams", "whatsapp"]);
+});
+
+test("the result of a tap is shown on the button itself, because Android does not reliably show a message from this kind of service", () => {
+  assert.ok(screenService.includes("bubble?.flash(onButton)"));
+  assert.ok(screenService.includes('feedback("!"') && screenService.includes('feedback("0"') && screenService.includes('feedback("✓${messages.size}"'));
+  assert.ok(bubble.includes("fun flash(text: String)") && bubble.includes('view.text = "A"'));
+});
+
+test("'Show what the app sees' starts with a plain-words verdict made of counts, never message text", () => {
+  assert.ok(screenService.includes("readers.getValue(app.source).diagnose("));
+  const reader = read("android/app/src/main/java/app/actionbrain/android/ScreenReader.kt");
+  const diagnose = reader.slice(reader.indexOf("fun diagnose("), reader.indexOf("private fun count("));
+  assert.ok(!diagnose.includes(".text}") && !diagnose.includes("sender") && !diagnose.includes("message.text"), "the verdict contains no message text or names");
+  assert.ok(diagnose.includes("title.length") && diagnose.includes("nodes.size"));
+});
+
+test("a chat is recognised from what a REAL accessibility service sees (found on a real Teams screen)", () => {
+  const apps = read("android/app/src/main/java/app/actionbrain/android/ChatApps.kt");
+  assert.ok(apps.includes('requires = listOf("message_area_edit_text", "message_area")'));
+  assert.ok(apps.includes("does NOT see the \"message_area\" container"));
 });

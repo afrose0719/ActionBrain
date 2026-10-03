@@ -169,6 +169,76 @@ class TeamsScreenTest {
         assertEquals("Unknown", got.single().sender)
     }
 
+    // ---- what a REAL accessibility service sees (the "important for accessibility" tree) ----
+    // Found on a real phone: a debugging tool shows the compose container "message_area", but a standard accessibility service does not
+    // get it. It gets the compose box ("message_area_edit_text", inside a scroll view) and nothing else of the bottom bar.
+    private fun serviceView(title: String?, rows: List<ScreenNode>, editBox: Boolean = true): ScreenNode {
+        val info = ScreenNode("com.microsoft.teams:id/infoLayout", "android.widget.Button", null, 184, 80, 447, 153, listOfNotNull(title?.let { textView("com.microsoft.teams:id/action_bar_title_text", it, 80) }))
+        val list = ScreenNode("com.microsoft.teams:id/conversations_recycler_view", "androidx.recyclerview.widget.RecyclerView", null, 0, 170, width, 1408, rows)
+        val coordinate = ScreenNode("com.microsoft.teams:id/coordinate_layout", "android.view.ViewGroup", null, 0, 170, width, 1408, listOf(list))
+        val edit = ScreenNode(
+            "com.microsoft.teams:id/message_area_edit_text_scrollview", "android.widget.ScrollView", null, 83, 1410, 581, 1487,
+            listOf(ScreenNode("com.microsoft.teams:id/message_area_edit_text", "android.widget.EditText", "a draft", 83, 1410, 581, 1487)),
+        )
+        val pager = ScreenNode("com.microsoft.teams:id/chat_view_pager", "androidx.viewpager.widget.ViewPager", null, 0, 170, width, 1510, listOf(coordinate) + (if (editBox) listOf(edit) else emptyList()))
+        return ScreenNode(null, "android.widget.FrameLayout", null, 0, 0, width, 1600, listOf(info, pager))
+    }
+
+    @Test
+    fun aChatIsRecognisedFromTheComposeBoxAloneBecauseARealServiceDoesNotSeeTheComposeContainer() {
+        val rows = listOf(row("Can you review the doc by Friday?", 350, "Asha Rao"))
+        assertEquals(listOf("Can you review the doc by Friday?"), reader().captureVisible(serviceView("Asha Rao", rows), width).map { it.text })
+    }
+
+    @Test
+    fun withNeitherComposeMarkerItIsNotAChat() {
+        assertTrue(reader().captureVisible(serviceView("Chat", listOf(row("a row", 350, "Someone")), editBox = false), width).isEmpty())
+    }
+
+    @Test
+    fun theWholeFlowWorksOnTheServiceView_baselineThenNewThenTap() {
+        val r = reader()
+        val before = serviceView("Asha Rao", listOf(row("hello", 200, "Asha Rao")))
+        assertTrue(r.read(before, width).isEmpty())
+        val after = serviceView("Asha Rao", listOf(row("hello", 200, "Asha Rao"), row("new one", 350, "Asha Rao")))
+        assertEquals(listOf("new one"), r.read(after, width).map { it.text })
+        assertTrue(r.captureVisible(after, width).map { it.text } == listOf("hello")) // history on screen, never sent before: a tap takes it
+    }
+
+    // ---- the plain-words diagnosis (counts only) ----
+    @Test
+    fun theDiagnosisSaysWhatWasFound_inCountsOnly() {
+        val secret = "my password is hunter2"
+        val report = reader().diagnose(serviceView("Asha Rao", listOf(row(secret, 200, "Asha Rao"), row("reply", 350, "You", rowId = "chat_message_from_me", left = 300, right = 700))), width)
+        assertTrue(report, report.contains("a chat with 2 message(s) read"))
+        assertTrue(report, report.contains("compose box: found"))
+        assertTrue(report, report.contains("yours 1, others 1"))
+        for (word in listOf("hunter2", "password", "Asha", "Rao", "reply")) assertFalse("must not contain $word", report.contains(word))
+    }
+
+    @Test
+    fun theDiagnosisNamesTheProblemWhenThereIsOne() {
+        assertTrue(reader().diagnose(serviceView(null, listOf(row("x", 200, "A"))), width).contains("NOT a chat (no chat title found)"))
+        assertTrue(reader().diagnose(serviceView("Chat", listOf(row("x", 200, "A")), editBox = false), width).contains("NOT a chat (no compose box found)"))
+        assertTrue(reader().diagnose(serviceView("Asha Rao", emptyList()), width).contains("a chat, but NO message text was found"))
+        assertTrue(reader().diagnose(serviceView("Asha Rao", emptyList()), width).contains("MISSING").not())
+    }
+
+    @Test
+    fun theDiagnosisForWhatsAppSaysNoComposeBoxIsNeeded() {
+        val whatsapp = ScreenNode(
+            null, null, null, 0, 0, 1000, 2000,
+            listOf(
+                ScreenNode("com.whatsapp:id/conversation_contact_name", "TextView", "Rajesh", 100, 10, 600, 60),
+                ScreenNode("com.whatsapp:id/message_text", "TextView", "hi", 20, 200, 420, 250),
+            ),
+        )
+        val report = ChatReader().diagnose(whatsapp, 1000)
+        assertTrue(report, report.contains("compose box: not needed"))
+        assertTrue(report, report.contains("a chat with 1 message(s) read"))
+        assertFalse(report.contains("Rajesh"))
+    }
+
     // ---- is a chat open at all? ----
     @Test
     fun theChatListSharesTheTitleBarButHasNoComposeBox_soNothingIsRead() {
