@@ -71,6 +71,14 @@ export function checkGoogle(env) {
   return fail("Only one of GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET is set. Set both, or neither.");
 }
 
+export function checkMicrosoft(env) {
+  const id = !!env.MICROSOFT_CLIENT_ID;
+  const secret = !!env.MICROSOFT_CLIENT_SECRET;
+  if (id && secret) return pass("Microsoft Teams sign-in is configured.");
+  if (!id && !secret) return warn("Microsoft Teams sign-in is not configured. That is fine if you do not need it (see docs/microsoft-teams-setup.md).");
+  return fail("Only one of MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET is set. Set both, or neither.");
+}
+
 // ---------------- secret scanner ----------------
 
 const SECRET_PATTERNS = [

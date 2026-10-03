@@ -31,6 +31,8 @@ export async function POST(request: Request) {
     p_group: parsed.message.group,
     // sent only when true, so a database that has not had the Milestone 24 SQL yet keeps working for ordinary messages
     ...(parsed.message.mine ? { p_mine: true } : {}),
+    // likewise only for Teams: WhatsApp keeps working against a database without the Milestone 27 SQL
+    ...(parsed.message.source === "teams" ? { p_source: "teams" } : {}),
   });
   if (error) return Response.json({ error: "Could not save the message." }, { status: 502 });
   if (data === "invalid") return Response.json({ error: "That token is not valid. Create a new one in Settings." }, { status: 401 });

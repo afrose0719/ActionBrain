@@ -84,6 +84,25 @@ Plan: submit the `play` build first (notifications and chat export), then add th
 - Telling *your* messages from other people's uses where the text sits on screen (right edge = you). That is a rule of thumb and can be wrong for very long messages. The thresholds are the first thing to tune on a real phone.
 - Group member names are read from the same message row. If WhatsApp changes the layout, the sender becomes "Unknown", never another member's name.
 
+## Microsoft Teams on the phone (Milestone 27, "route A")
+Teams is a second chat app next to WhatsApp, with its own on/off switch. It is **off until you choose it**.
+
+**Switch it on:** Settings → Phone messages → This phone → What to capture → **Apps** → tick **Microsoft Teams**. The app first shows its own explanation (what is read, what happens to it, that your colleagues have not agreed, and to check your organisation allows it) and switches Teams on only after you press **Agree and continue**.
+
+What it captures:
+- **Notifications:** messages that Teams shows on this phone: one-to-one chats, group chats, @mentions and channel posts you are notified about. Calls, meeting reminders, "liked your message" and activity digests are ignored (only notifications that are messages are kept).
+- **Open chats:** if live chat reading is on, the messages of a Teams chat while it is open on screen, including your own, in **Automatic** or **On tap** mode (the floating button works over Teams too).
+- They land in the Inbox as **Teams** items: "Teams chat with Asha", or "Teams group: Sprint chat", grouped into one item per conversation exactly like WhatsApp. Your own messages read "You (to Asha): ...".
+- The WhatsApp filters in Settings ("ignore groups", "only these senders") do **not** apply to Teams.
+
+**Two things that are not verified yet, and what to do:**
+1. **Teams' screen part names are guesses.** Reading an open Teams chat needs the names Teams gives its chat title and message text. Mine (in `ChatApps.kt`) are educated guesses, not checked against a real Teams screen. If **Show what the app sees** finds nothing in a Teams chat, send me that text (it has no message text), and I fix the one list. **Notifications do not depend on this.**
+2. **Notification format.** Teams' notifications are filtered by "uses the messaging layout, or is in the message category". If messages you expect do not arrive, press **Show what notifications look like** (it shows each notification's category, channel and the *lengths* of its text, never the words) and send it to me.
+
+**A limit to be aware of:** Teams may **hold back mobile notifications while you are active on the desktop app**. If so, the phone sees nothing during desk time. That is how Teams decides, not something the app can change, and it is why route B (`microsoft-teams-setup.md`) exists. Please test it: while using Teams on your computer, does a colleague's message reach your phone?
+
+Do not use both routes for the same person: the same message would be added twice.
+
 ## Choosing what to capture (Milestone 25)
 **Settings → Phone messages → This phone → What to capture** has three independent controls. Everything is optional.
 
@@ -122,7 +141,7 @@ These switches change only what ActionBrain does. Android's own permissions (not
 - This is a **debug-signed** build. Fine for your own phone. Debug keys differ per computer, so an APK built on another machine cannot update this install: uninstall first (you will create a new token).
 
 ## Tests
-- **Kotlin unit tests** (`android/app/src/test`, 51 tests, run with `./gradlew testFullDebugUnitTest`): token format, the "only your own address" rule, JSON escaping (including text that tries to break out of the JSON), length caps, duplicate suppression, the shared-chat hand-off, and the capture rules (`CapturePolicyTest`: every combination of notifications, mode, pause and hidden button), the live-reading logic including "capture everything visible" for the floating button (`ScreenReaderTest`: baseline, new messages only, scrolling around, switching chats, groups, who wrote it, never reading the typing box, the structure dump containing no message text). Breaking the token rule on purpose makes one fail.
+- **Kotlin unit tests** (`android/app/src/test`, 73 tests, run with `./gradlew testFullDebugUnitTest`): token format, the "only your own address" rule, JSON escaping (including text that tries to break out of the JSON), length caps, duplicate suppression, the shared-chat hand-off, and the capture rules (`CapturePolicyTest`: every combination of notifications, mode, pause and hidden button), the live-reading logic including "capture everything visible" for the floating button (`ScreenReaderTest`: baseline, new messages only, scrolling around, switching chats, groups, who wrote it, never reading the typing box, the structure dump containing no message text). Breaking the token rule on purpose makes one fail.
 - **TypeScript tests** (`tests/android-bridge.test.mts`, 12 tests): the website's bridge handling, and checks that the Kotlin and TypeScript sides agree (token format, bridge method list, address, permissions, locked-down manifest, only WhatsApp read).
 
 ## What was tested, and what was not

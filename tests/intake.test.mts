@@ -59,12 +59,12 @@ test("parseSenderList caps the count and the length of names", () => {
 // ---- notifications ----
 test("plain text: first line is the sender, the rest is the message", () => {
   const m = ok(readNotification("text/plain", 'Rajesh\nCan you send the RCA by Friday?\nAlso "quotes" and \\ are fine'));
-  assert.deepEqual(m, { sender: "Rajesh", text: 'Can you send the RCA by Friday?\nAlso "quotes" and \\ are fine', group: null, mine: false });
+  assert.deepEqual(m, { sender: "Rajesh", text: 'Can you send the RCA by Friday?\nAlso "quotes" and \\ are fine', group: null, mine: false, source: "whatsapp" });
 });
 
 test("JSON works, with sender/message as aliases", () => {
-  assert.deepEqual(ok(readNotification("application/json", JSON.stringify({ title: "Priya", text: "Call me" }))), { sender: "Priya", text: "Call me", group: null, mine: false });
-  assert.deepEqual(ok(readNotification("application/json; charset=utf-8", JSON.stringify({ sender: "Priya", message: "Call me", group: "Team", mine: false }))), { sender: "Priya", text: "Call me", group: "Team", mine: false });
+  assert.deepEqual(ok(readNotification("application/json", JSON.stringify({ title: "Priya", text: "Call me" }))), { sender: "Priya", text: "Call me", group: null, mine: false, source: "whatsapp" });
+  assert.deepEqual(ok(readNotification("application/json; charset=utf-8", JSON.stringify({ sender: "Priya", message: "Call me", group: "Team", mine: false, source: "whatsapp" }))), { sender: "Priya", text: "Call me", group: "Team", mine: false, source: "whatsapp" });
 });
 
 test("broken or non-object JSON is 'invalid'", () => {
@@ -104,7 +104,7 @@ test("a '(3 messages)' suffix on a 1:1 chat title is removed", () => {
 });
 
 test("a 'Group: Sender' title is a group message; the sender is the person", () => {
-  assert.deepEqual(ok(readNotification("text/plain", "Project Team: Priya\nUpdate the deck by Friday")), { sender: "Priya", text: "Update the deck by Friday", group: "Project Team", mine: false });
+  assert.deepEqual(ok(readNotification("text/plain", "Project Team: Priya\nUpdate the deck by Friday")), { sender: "Priya", text: "Update the deck by Friday", group: "Project Team", mine: false, source: "whatsapp" });
 });
 
 test("a single line is the message itself, from 'Unknown'; long input is cut", () => {
@@ -127,7 +127,7 @@ test("Hindi and other scripts count as text", () => {
 // ---- the SQL and the TypeScript must agree ----
 const sql = readFileSync(new URL("../supabase/milestone22-intake.sql", import.meta.url), "utf8");
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8");
-const sql26 = readFileSync(new URL("../supabase/milestone26-grouping.sql", import.meta.url), "utf8");
+const sql27 = readFileSync(new URL("../supabase/milestone27-teams.sql", import.meta.url), "utf8");
 
 test("the database function uses the same token pattern and hash as the code", () => {
   assert.ok(sql.includes("'^abi_[A-Za-z0-9_-]{43}$'"));
@@ -156,9 +156,9 @@ test("only the hash is stored: the table has no plain token column", () => {
 test("schema.sql carries the same function body as the milestone file", () => {
   const fn = (raw: string) => {
     const text = raw.replace(/\r\n/g, "\n"); // schema.sql and the milestone file may use different line endings
-    return text.slice(text.indexOf("create or replace function public.ingest_message"), text.indexOf("grant execute on function public.ingest_message"));
+    return text.slice(text.indexOf("create or replace function public._ingest_chat_message"), text.indexOf("revoke all on function public._ingest_chat_message"));
   };
-  assert.equal(fn(schema), fn(sql26)); // schema.sql always carries the newest function; the older milestone files are history
+  assert.equal(fn(schema), fn(sql27)); // schema.sql always carries the newest function; the older milestone files are history
   assert.ok(schema.includes("create table if not exists public.intake_settings"));
 });
 
@@ -170,7 +170,7 @@ test("the abuse limits are in the function", () => {
 
 test("JSON can mark a message as written by you (the Android app reads your own messages from the open chat)", () => {
   const m = ok(readNotification("application/json", JSON.stringify({ title: "Rajesh", text: "I will send it tomorrow", mine: true })));
-  assert.deepEqual(m, { sender: "Rajesh", text: "I will send it tomorrow", group: null, mine: true });
+  assert.deepEqual(m, { sender: "Rajesh", text: "I will send it tomorrow", group: null, mine: true, source: "whatsapp" });
 });
 
 test("only a real boolean true counts as mine", () => {
@@ -191,10 +191,4 @@ test("the Milestone 24 SQL adds p_mine, drops the old function, and says 'You' f
   assert.ok(sql24.includes("grant execute on function public.ingest_message(text, text, text, text, boolean) to anon, authenticated;"));
   assert.ok(sql24.includes("security definer"));
   assert.ok(!/service_role/i.test(sql24));
-  // the other milestone file and schema.sql carry the same function body
-  const body = (raw: string) => {
-    const t = raw.replace(/\r\n/g, "\n");
-    return t.slice(t.indexOf("create or replace function public.ingest_message"), t.indexOf("grant execute on function public.ingest_message"));
-  };
-  assert.equal(body(sql26), body(schema));
 });

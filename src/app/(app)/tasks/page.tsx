@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { CommandBox } from "@/components/command-box";
 import type { Priority, Task } from "@/lib/types";
 
-const SOURCES = ["manual", "email", "meeting", "whatsapp", "browser", "call"];
+const SOURCES = ["manual", "email", "meeting", "whatsapp", "teams", "browser", "call"];
 
 type Form = {
   title: string;

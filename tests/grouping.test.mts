@@ -47,11 +47,14 @@ test("a fractional or silly count is cut to a whole number", () => {
 
 // ---- the rules in the database function (each of these was also run against the real database) ----
 const sql26 = read("supabase/milestone26-grouping.sql");
+const sql27 = read("supabase/milestone27-teams.sql");
 const schema = read("supabase/schema.sql");
-const fn = (raw: string) => raw.slice(raw.indexOf("create or replace function public.ingest_message"), raw.indexOf("grant execute on function public.ingest_message"));
+// the grouping rules now live in the shared internal function (Milestone 27); the Milestone 26 file is the migration that introduced them
+const fn26 = (raw: string) => raw.slice(raw.indexOf("create or replace function public.ingest_message"), raw.indexOf("grant execute on function public.ingest_message"));
+const fn = (raw: string) => raw.slice(raw.indexOf("create or replace function public._ingest_chat_message"), raw.indexOf("revoke all on function public._ingest_chat_message"));
 
 test("a conversation stays together while it is ACTIVE: 60 minutes since the LAST message, not 5 since the first", () => {
-  const f = fn(sql26);
+  const f = fn(sql27);
   assert.ok(f.includes("last_message_at > now() - interval '60 minutes'"));
   assert.ok(!f.includes("interval '5 minutes'"), "the old fixed 5-minute rule must be gone");
   assert.ok(!f.includes("created_at > now() - interval '5 minutes'"));
@@ -59,19 +62,21 @@ test("a conversation stays together while it is ACTIVE: 60 minutes since the LAS
 });
 
 test("a group chat is ONE item for the group, not one per member; a one-to-one chat is one per person", () => {
-  const f = fn(sql26);
+  const f = fn(sql27);
   assert.ok(f.includes("'WhatsApp group: ' || v_group"));
   assert.ok(f.includes("'WhatsApp from ' || v_sender"));
+  assert.ok(f.includes("'Teams group: ' || v_group"));
+  assert.ok(f.includes("'Teams chat with ' || v_sender"));
   assert.ok(!f.includes("' in ' || v_group end;"), "the old per-member reference must be gone");
 });
 
 test("only items you have not analyzed take new lines, so created or dismissed tasks are never disturbed", () => {
-  const select = fn(sql26).slice(fn(sql26).indexOf("select * into v_recent"), fn(sql26).indexOf("v_continues := found"));
+  const select = fn(sql27).slice(fn(sql27).indexOf("select * into v_recent"), fn(sql27).indexOf("v_continues := found"));
   assert.ok(select.includes("status = 'new'"));
 });
 
 test("a full item continues in a '(continued)' item, and later messages find it", () => {
-  const f = fn(sql26);
+  const f = fn(sql27);
   assert.ok(f.includes("source_ref in (v_ref, v_ref || ' (continued)')"));
   assert.ok(f.includes("case when v_continues then v_ref || ' (continued)' else v_ref end"));
   assert.ok(f.includes("<= 6000"));
@@ -83,7 +88,7 @@ test("the migration adds the columns, fills old rows, and keeps the safety desig
   assert.ok(sql26.includes("add column if not exists message_count integer not null default 1"));
   assert.ok(sql26.includes("update public.inbox_items set last_message_at = created_at where last_message_at is null"));
   assert.ok(sql26.includes("alter column last_message_at set not null"));
-  assert.match(fn(sql26), /security definer\s+set search_path = ''/);
+  assert.match(fn26(sql26), /security definer\s+set search_path = ''/);
   assert.ok(sql26.includes("grant execute on function public.ingest_message(text, text, text, text, boolean) to anon, authenticated;"));
   assert.ok(!/service_role/i.test(sql26));
   assert.ok(!sql26.includes("drop table") && !sql26.includes("delete from"), "the migration never deletes anything");
@@ -92,7 +97,7 @@ test("the migration adds the columns, fills old rows, and keeps the safety desig
 test("schema.sql has the same columns and the same function as the migration", () => {
   assert.ok(schema.includes("last_message_at timestamptz not null default now()"));
   assert.ok(schema.includes("message_count   integer not null default 1"));
-  assert.equal(fn(schema), fn(sql26));
+  assert.equal(fn(schema), fn(sql27));
 });
 
 test("the Inbox keeps a conversation that is still going on top, and shows the label", () => {

@@ -51,6 +51,7 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
             ",\"readingMode\":" + Payload.quote(capture.reading) +
             ",\"pausedUntil\":" + capture.pausedUntil +
             ",\"bubbleHidden\":" + capture.bubbleHidden(System.currentTimeMillis()) +
+            ",\"apps\":{" + ChatApps.all.joinToString(",") { "\"" + it.source + "\":" + capture.appActive(it.source) } + "}" +
             ",\"sent\":" + stats.sent + ",\"failed\":" + stats.failed + ",\"lastAt\":" + stats.lastAt +
             ",\"lastResult\":" + Payload.quote(stats.lastResult) + "}"
     }
@@ -78,6 +79,38 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
     /** Switch notification capture on or off (the Android permission itself is not touched). */
     @JavascriptInterface
     fun setNotificationsEnabled(on: Boolean) = CaptureSettings(activity).setNotifications(on)
+
+    /**
+     * Switch a chat app ("whatsapp" or "teams") on or off. Switching Teams on for the first time first shows the app's own explanation
+     * (what is read, what happens to it) and only switches it on after "Agree". Returns false for an unknown app.
+     */
+    @JavascriptInterface
+    fun setAppEnabled(source: String?, on: Boolean): Boolean {
+        val app = ChatApps.forSource(source) ?: return false
+        val settings = CaptureSettings(activity)
+        if (on && app.source == "teams" && !settings.teamsConsented()) {
+            activity.runOnUiThread {
+                val body = activity.getString(R.string.teams_consent_notifications) +
+                    if (BuildConfig.SCREEN_READING) "\n\n" + activity.getString(R.string.teams_consent_screen) else ""
+                AlertDialog.Builder(activity)
+                    .setTitle(R.string.teams_consent_title)
+                    .setMessage(body + "\n\n" + activity.getString(R.string.teams_consent_common))
+                    .setPositiveButton(R.string.screen_consent_agree) { _, _ ->
+                        settings.setTeamsConsented()
+                        settings.setApp("teams", true)
+                    }
+                    .setNegativeButton(R.string.screen_consent_cancel, null)
+                    .show()
+            }
+            return true // the choice is asked for; the status shows the result
+        }
+        return settings.setApp(app.source, on)
+    }
+
+    /** The shape of the latest notification from each app, with no message text. For fixing problems. */
+    @JavascriptInterface
+    fun notificationStructure(): String =
+        ScreenStatus.lastNotification.entries.sortedBy { it.key }.joinToString("\n\n") { "[" + it.key + "]\n" + it.value }
 
     /** "off", "auto" or "tap". Anything else is refused and returns false. */
     @JavascriptInterface

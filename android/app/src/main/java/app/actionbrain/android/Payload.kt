@@ -34,11 +34,13 @@ object Payload {
     /**
      * group is null for a one-to-one chat. Text is cut to what the server accepts (it cuts again, so this is only a courtesy).
      * mine = you wrote it; then [sender] is the chat it was written in.
+     * source = which chat app it came from ("whatsapp" or "teams"). Only sent when it is not WhatsApp, so older servers keep working.
      */
-    fun message(sender: String, text: String, group: String?, mine: Boolean = false): String {
+    fun message(sender: String, text: String, group: String?, mine: Boolean = false, source: String = "whatsapp"): String {
         val parts = mutableListOf("\"title\":" + quote(sender.take(100)), "\"text\":" + quote(text.take(1500)))
         if (!group.isNullOrBlank()) parts += "\"group\":" + quote(group.take(100))
         if (mine) parts += "\"mine\":true"
+        if (source != "whatsapp") parts += "\"source\":" + quote(source.take(20))
         return "{" + parts.joinToString(",") + "}"
     }
 }

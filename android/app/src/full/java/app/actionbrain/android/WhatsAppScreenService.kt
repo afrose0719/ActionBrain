@@ -12,22 +12,24 @@ import android.widget.Toast
 import java.util.Calendar
 
 /**
- * Reads the messages of an OPEN WhatsApp chat (which WhatsApp does not announce as a notification).
- * What it does depends on the mode you chose in Settings (see [CaptureMode]):
+ * Reads the messages of an OPEN chat (which the chat app does not announce as a notification), in the chat apps you switched on in Settings
+ * (WhatsApp, and Microsoft Teams if you chose it). What it does depends on the mode you chose (see [CaptureMode]):
  *  - auto: reads the open chat by itself and sends the NEW messages.
  *  - tap:  does nothing in the background. A floating button appears over the chat; when you tap it, it reads what is on screen once.
  *  - off:  reads nothing.
  * Pausing (Settings, or the Quick Settings tile) acts as "off" for everything for a while.
  *
+ * The class keeps its old name (WhatsAppScreenService) on purpose: Android stores the accessibility access you granted under this exact name.
+ *
  * Limits, on purpose:
- *  - Android only delivers events from WhatsApp's packages (see res/xml/screen_service_config.xml), and the code checks again.
+ *  - Android only delivers events from the apps in res/xml/screen_service_config.xml, and the code reads an app only if it is switched on.
  *  - Read-only: no gestures, no clicks, no typing. The only text ever copied off the screen is the chat name, message text and a
  *    group member's name. Nothing you type, nothing from any other app.
  *  - Nothing is stored. A few short keys stay in memory to avoid sending the same message twice.
- * Which messages are new, and who wrote them, is decided by [ChatReader] (pure Kotlin, unit tested).
+ * Which messages are new, and who wrote them, is decided by [ChatReader] (pure Kotlin, unit tested), one reader per app.
  */
 class WhatsAppScreenService : AccessibilityService() {
-    private val reader = ChatReader()
+    private val readers = ChatApps.all.associate { it.source to ChatReader(it.ids) }
     private val handler = Handler(Looper.getMainLooper())
     private var bubble: Bubble? = null
     private var misses = 0
@@ -35,7 +37,7 @@ class WhatsAppScreenService : AccessibilityService() {
     private val screenChanged = Runnable { onScreenChanged() }
     private val pollBubble = Runnable { refreshBubble() }
 
-    // switching a mode in Settings should take effect at once, not at the next screen change
+    // switching a mode or an app in Settings should take effect at once, not at the next screen change
     private val settingsChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> handler.post { refreshBubble() } }
 
     override fun onServiceConnected() {
@@ -44,7 +46,7 @@ class WhatsAppScreenService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        if (event.packageName?.toString() !in PACKAGES) return
+        if (ChatApps.forPackage(event.packageName?.toString()) == null) return
         handler.removeCallbacks(screenChanged)
         handler.postDelayed(screenChanged, DEBOUNCE_MS) // wait for the screen to settle: one look per burst of changes
     }
@@ -55,7 +57,7 @@ class WhatsAppScreenService : AccessibilityService() {
         getSharedPreferences("capture", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(settingsChanged)
         handler.removeCallbacksAndMessages(null)
         removeBubble()
-        reader.reset()
+        readers.values.forEach { it.reset() }
         ScreenStatus.lastStructure = ""
         return super.onUnbind(intent)
     }
@@ -66,37 +68,47 @@ class WhatsAppScreenService : AccessibilityService() {
         if (CaptureSettings(this).load().readingMode(now) == CaptureMode.AUTO) autoRead()
     }
 
+    /** The chat app in front, if it is one we support AND the user switched it on. */
+    private fun activeApp(root: AccessibilityNodeInfo?, policy: CapturePolicy): ChatApp? {
+        val app = ChatApps.forPackage(root?.packageName?.toString()) ?: return null
+        return if (policy.appActive(app.source)) app else null
+    }
+
     // ---- automatic mode ----
 
     private fun autoRead() {
         val root = rootInActiveWindow ?: return
-        if (!isWhatsApp(root)) return reader.reset() // you moved to another app: forget the chat
+        val app = activeApp(root, CaptureSettings(this).load())
+        if (app == null) { // another app, or one that is switched off: forget the chats
+            if (ChatApps.forPackage(root.packageName?.toString()) == null) readers.values.forEach { it.reset() }
+            return
+        }
 
-        val node = toNode(root, 0, intArrayOf(MAX_NODES))
+        val node = toNode(app, root, 0, intArrayOf(MAX_NODES))
         record(node)
 
         val config = TokenStore(this).load() ?: return // not connected yet: nothing is sent
-        reader.read(node, resources.displayMetrics.widthPixels).forEach { send(config, it) }
+        readers.getValue(app.source).read(node, resources.displayMetrics.widthPixels).forEach { send(config, app, it) }
     }
 
     // ---- on-tap mode ----
 
-    /** Shows or hides the floating button. It is shown only in tap mode, only over a WhatsApp chat, and not if hidden for today. */
+    /** Shows or hides the floating button. It is shown only in tap mode, only over a chat of an app that is on, and not if hidden for today. */
     private fun refreshBubble() {
         val now = System.currentTimeMillis()
         val policy = CaptureSettings(this).load()
         if (policy.readingMode(now) != CaptureMode.TAP) return removeBubble() // other modes: no button, and no looking at the screen for it
         val root = rootInActiveWindow
-        val inWhatsApp = root != null && isWhatsApp(root)
-        if (root != null && !inWhatsApp) reader.reset() // an explicit other app (not just a blink): forget the chat
-        val chatOpen = inWhatsApp && root!!.findAccessibilityNodeInfosByViewId("${root.packageName}:id/${WhatsAppIds.CHAT_NAME}").isNotEmpty()
+        val app = activeApp(root, policy)
+        if (root != null && ChatApps.forPackage(root.packageName?.toString()) == null) readers.values.forEach { it.reset() } // an explicit other app (not just a blink)
+        val chatOpen = app != null && root != null && app.ids.chatName.any { root.findAccessibilityNodeInfosByViewId("${root.packageName}:id/$it").isNotEmpty() }
 
         // a single empty look is often just a screen transition: only believe "gone" after two in a row
         misses = if (chatOpen) 0 else misses + 1
         if (policy.showBubble(now, chatOpen || misses < 2 && bubble != null)) {
             if (bubble == null) bubble = Bubble(this, ::captureNow, ::hideBubbleForToday).also { it.show() }
             handler.removeCallbacks(pollBubble)
-            handler.postDelayed(pollBubble, POLL_MS) // while it is showing, notice when you leave WhatsApp
+            handler.postDelayed(pollBubble, POLL_MS) // while it is showing, notice when you leave the app
         } else {
             removeBubble()
         }
@@ -111,14 +123,15 @@ class WhatsAppScreenService : AccessibilityService() {
     /** The button was tapped: send everything visible that was not sent before. */
     private fun captureNow() {
         val root = rootInActiveWindow
-        if (root == null || !isWhatsApp(root)) return toast("Open a WhatsApp chat first")
+        val app = activeApp(root, CaptureSettings(this).load())
+        if (root == null || app == null) return toast("Open a chat in WhatsApp or Teams first")
         val config = TokenStore(this).load() ?: return toast("Not connected. Open ActionBrain, then Settings, then Phone messages.")
 
-        val node = toNode(root, 0, intArrayOf(MAX_NODES))
+        val node = toNode(app, root, 0, intArrayOf(MAX_NODES))
         record(node)
-        val messages = reader.captureVisible(node, resources.displayMetrics.widthPixels)
+        val messages = readers.getValue(app.source).captureVisible(node, resources.displayMetrics.widthPixels)
         if (messages.isEmpty()) return toast("Nothing new to capture")
-        messages.forEach { send(config, it) }
+        messages.forEach { send(config, app, it) }
         toast(if (messages.size == 1) "✓ 1 message captured" else "✓ ${messages.size} messages captured")
     }
 
@@ -134,8 +147,6 @@ class WhatsAppScreenService : AccessibilityService() {
 
     // ---- shared ----
 
-    private fun isWhatsApp(root: AccessibilityNodeInfo) = root.packageName?.toString()?.let { it in PACKAGES } == true
-
     private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
 
     private fun record(node: ScreenNode) {
@@ -143,30 +154,29 @@ class WhatsAppScreenService : AccessibilityService() {
         ScreenStatus.lastSeenAt = System.currentTimeMillis()
     }
 
-    private fun send(config: TokenStore.Config, m: ChatMessage) {
+    private fun send(config: TokenStore.Config, app: ChatApp, m: ChatMessage) {
         // your own message: the title is the chat it was written in. Someone else's: the title is who wrote it.
-        IntakeClient.send(this, config, Payload.message(if (m.mine) m.chat else m.sender, m.text, m.group, m.mine))
+        IntakeClient.send(this, config, Payload.message(if (m.mine) m.chat else m.sender, m.text, m.group, m.mine, app.source))
     }
 
-    /** Copies the screen into plain nodes. Text is copied ONLY for the three parts we use; every other node keeps just its shape. */
-    private fun toNode(info: AccessibilityNodeInfo, depth: Int, budget: IntArray): ScreenNode {
+    /** Copies the screen into plain nodes. Text is copied ONLY for the three parts this app's reader uses; every other node keeps just its shape. */
+    private fun toNode(app: ChatApp, info: AccessibilityNodeInfo, depth: Int, budget: IntArray): ScreenNode {
         budget[0]--
         val bounds = Rect().also { info.getBoundsInScreen(it) }
         val id = info.viewIdResourceName
-        val wanted = id != null && (id.endsWith(":id/" + WhatsAppIds.CHAT_NAME) || id.endsWith(":id/" + WhatsAppIds.MESSAGE_TEXT) || id.endsWith(":id/" + WhatsAppIds.GROUP_MEMBER))
+        val wanted = app.ids.wanted(id)
         val children = ArrayList<ScreenNode>()
         if (depth < MAX_DEPTH) {
             for (i in 0 until info.childCount) {
                 if (budget[0] <= 0) break
                 val child = info.getChild(i) ?: continue
-                children += toNode(child, depth + 1, budget)
+                children += toNode(app, child, depth + 1, budget)
             }
         }
         return ScreenNode(id, info.className?.toString(), if (wanted) info.text?.toString() else null, bounds.left, bounds.top, bounds.right, bounds.bottom, children)
     }
 
     private companion object {
-        val PACKAGES = setOf("com.whatsapp", "com.whatsapp.w4b")
         const val DEBOUNCE_MS = 600L
         const val POLL_MS = 1500L
         const val MAX_DEPTH = 40

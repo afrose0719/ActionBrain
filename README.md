@@ -11,6 +11,7 @@
 | **Commitments** | What you promised and what others promised you, with a review queue and at-risk warnings. |
 | **Waiting For** | Everything others owe you, grouped by person, with an AI briefing ("who should I chase today?"). |
 | **Record a call** | Press Record in Meetings. Your voice is transcribed **on your own device** (private, free, no upload) and turned into suggested tasks and commitments. See `docs/call-recording.md` for speed, limits and what is untested. |
+| **Microsoft Teams** | Two routes. On the phone, the Android app captures Teams notifications and open chats (no admin approval). Or **Connect Microsoft Teams** (sign in with your work account) to bring your chats in on any device; some organisations need an admin to approve it once, and Settings creates the link for them. See `docs/microsoft-teams-setup.md`. |
 | **ActionBrain Android app** | A small native app (`android/`) that opens your site and forwards WhatsApp messages to your Inbox by itself, with no third-party automation app. Optional **live chat reading** captures messages while a WhatsApp chat is open, automatically or with a floating button you tap (read-only, with consent; a separate Play-safe build omits it). You choose what is captured, and can pause it from a Quick Settings tile. Sideloaded APK. See `docs/android-app.md`. |
 | **Phone messages (WhatsApp, Android)** | An automation app on your phone sends WhatsApp notifications to your private address; they land in the Inbox for you to analyze and approve. No WhatsApp login, no ban risk. See `docs/whatsapp-intake.md`. |
 | **Phone call recordings (Android)** | Record calls with your phone's own recorder, then **Share → ActionBrain**. It is transcribed on the phone (private, free) and turned into suggested tasks and commitments. See `docs/android-call-recordings.md`. |
@@ -66,6 +67,7 @@ See `extension/README.md`. Load the `extension` folder at `chrome://extensions` 
 
 ## Docs
 - `docs/deploy.md`: deploying to Vercel, step by step
+- `docs/microsoft-teams-setup.md`: Microsoft Teams (Milestone 27): the sign-in, the admin approval link, registering the app, limits, what is untested
 - `docs/android-app.md`: the Android app (Milestone 23): install, first run, build, security, what is untested
 - `docs/whatsapp-intake.md`: WhatsApp notifications into the Inbox (Milestone 22): setup, filters, privacy, security, what is untested
 - `docs/android-call-recordings.md`: free Android call-recording flow (India-friendly), setup, limits, what is untested

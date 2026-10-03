@@ -15,6 +15,8 @@ const fullBridge = () => ({
   screenStructure: () => "",
   setNotificationsEnabled: () => {},
   setReadingMode: () => true,
+  setAppEnabled: () => true,
+  notificationStructure: () => "",
   pauseCapture: () => {},
   showBubbleAgain: () => {},
   addQuickSettingsTile: () => {},
@@ -72,8 +74,22 @@ const goodControls = { notificationsOn: true, readingMode: "tap", pausedUntil: 0
 
 test("the capture controls are read when the app sends them", () => {
   const s = parseAndroidStatus(JSON.stringify({ ...goodStatus, ...goodControls, pausedUntil: 1790000999000.7, bubbleHidden: true, notificationsOn: false }));
-  assert.deepEqual(s?.controls, { notificationsOn: false, readingMode: "tap", pausedUntil: 1790000999000, bubbleHidden: true });
+  assert.deepEqual(s?.controls, {
+    notificationsOn: false,
+    readingMode: "tap",
+    pausedUntil: 1790000999000,
+    bubbleHidden: true,
+    apps: { whatsapp: true, teams: false }, // an app that does not say: WhatsApp on, Teams off
+  });
   for (const mode of ["off", "auto", "tap"]) assert.equal(parseAndroidStatus(JSON.stringify({ ...goodStatus, ...goodControls, readingMode: mode }))?.controls?.readingMode, mode);
+});
+
+test("which chat apps are switched on is read, and a wrong shape is refused", () => {
+  const apps = { whatsapp: false, teams: true };
+  assert.deepEqual(parseAndroidStatus(JSON.stringify({ ...goodStatus, ...goodControls, apps }))?.controls?.apps, apps);
+  for (const bad of [{ whatsapp: true }, { whatsapp: "yes", teams: false }, { whatsapp: true, teams: 1 }, null, "teams", []]) {
+    assert.equal(parseAndroidStatus(JSON.stringify({ ...goodStatus, ...goodControls, apps: bad })), null, JSON.stringify(bad));
+  }
 });
 
 test("capture controls that are present but wrong are refused, never half-read", () => {
@@ -177,7 +193,7 @@ test("the app and the website use the same token format", () => {
 
 test("every method the website calls exists in the app's bridge, and nothing extra is exposed", () => {
   const exposed = [...kotlinBridge.matchAll(/@JavascriptInterface\s+fun (\w+)/g)].map((m) => m[1]).sort();
-  assert.deepEqual(exposed, ["addQuickSettingsTile", "clearIntake", "isApp", "openAppInfo", "openBatterySettings", "openNotificationAccess", "openScreenReadingSettings", "pauseCapture", "saveIntake", "screenStructure", "setNotificationsEnabled", "setReadingMode", "showBubbleAgain", "status", "takeSharedFile"]);
+  assert.deepEqual(exposed, ["addQuickSettingsTile", "clearIntake", "isApp", "notificationStructure", "openAppInfo", "openBatterySettings", "openNotificationAccess", "openScreenReadingSettings", "pauseCapture", "saveIntake", "screenStructure", "setAppEnabled", "setNotificationsEnabled", "setReadingMode", "showBubbleAgain", "status", "takeSharedFile"]);
   const website = Object.keys(fullBridge()).sort();
   assert.deepEqual(exposed, website);
 });
@@ -203,10 +219,14 @@ test("the app is locked down: https only, no backups, listener protected by the 
   assert.ok(gradle.includes('appUrl.startsWith("https://")'));
 });
 
-test("only WhatsApp's notifications are read", () => {
-  const service = read("android/app/src/main/java/app/actionbrain/android/WhatsAppListenerService.kt");
-  const packages = service.match(/setOf\(([^)]*)\)/)?.[1].split(",").map((p) => p.trim().replace(/"/g, ""));
-  assert.deepEqual(packages, ["com.whatsapp", "com.whatsapp.w4b"]);
+test("only the supported chat apps' notifications are read, and only the ones switched on", () => {
+  const apps = read("android/app/src/main/java/app/actionbrain/android/ChatApps.kt");
+  const packages = [...apps.matchAll(/packages = setOf\(([^)]*)\)/g)].flatMap((m) => m[1].split(",").map((p) => p.trim().replace(/"/g, "")));
+  assert.deepEqual(packages, ["com.whatsapp", "com.whatsapp.w4b", "com.microsoft.teams"]);
+  assert.ok(listener.includes("ChatApps.forPackage(sbn.packageName) ?: return"));
+  assert.ok(listener.includes("policy.appActive(app.source)"));
+  // the app check comes before anything is read or sent
+  assert.ok(listener.indexOf("appActive") < listener.indexOf("IntakeClient.send"));
 });
 
 test("the website the app opens is the deployed one, and the app keeps to that one site", () => {
@@ -229,21 +249,25 @@ test("live chat reading exists only in the 'full' build, never in the main manif
   assert.ok(gradle.includes('buildConfigField("boolean", "SCREEN_READING", "false")'));
 });
 
-test("the service is read-only and scoped to WhatsApp, by Android's own configuration", () => {
-  assert.ok(serviceConfig.includes('android:packageNames="com.whatsapp,com.whatsapp.w4b"'));
+test("the service is read-only and scoped to the supported chat apps, by Android's own configuration", () => {
+  assert.ok(serviceConfig.includes('android:packageNames="com.whatsapp,com.whatsapp.w4b,com.microsoft.teams"'));
   assert.ok(serviceConfig.includes('android:canRetrieveWindowContent="true"'));
   for (const power of ["canPerformGestures", "canTakeScreenshot", "flagRequestTouchExplorationMode", "typeViewTextChanged", "typeAllMask", "canRequestFilterKeyEvents", "flagRequestFilterKeyEvents", "typeViewClicked"]) {
     assert.ok(!serviceConfig.replace(/<!--[\s\S]*?-->/g, "").includes(power), `must not use ${power}`);
   }
 });
 
-test("the service reads message text only for the three named WhatsApp parts, and never acts on the screen", () => {
-  assert.ok(screenService.includes("val wanted = id != null &&"));
-  for (const id of ["CHAT_NAME", "MESSAGE_TEXT", "GROUP_MEMBER"]) assert.ok(screenService.includes(`WhatsAppIds.${id}`), id);
+test("the service reads message text only for the three named parts of the app in front, and never acts on the screen", () => {
+  assert.ok(screenService.includes("val wanted = app.ids.wanted(id)"));
+  const apps = read("android/app/src/main/java/app/actionbrain/android/ChatApps.kt");
+  const wanted = apps.slice(apps.indexOf("fun wanted("), apps.indexOf("private fun matches"));
+  for (const list of ["chatName", "messageText", "groupMember"]) assert.ok(wanted.includes(`name in ${list}`), list);
+  assert.ok(!/name in (?!chatName|messageText|groupMember)/.test(wanted), "only those three kinds of part");
   for (const action of ["performAction", "dispatchGesture", "ACTION_CLICK", "ACTION_SET_TEXT", "performGlobalAction", "takeScreenshot"]) {
     assert.ok(!screenService.includes(action), `must not call ${action}`);
   }
-  assert.ok(screenService.includes("PACKAGES"));
+  // an app is read only if it is one we support AND the user switched it on
+  assert.ok(screenService.includes("policy.appActive(app.source)"));
 });
 
 test("the consent dialog is native, comes before Android's settings open, and says what is read and what happens to it", () => {
@@ -283,9 +307,9 @@ test("the notification service obeys the switch and the pause", () => {
 
 test("automatic reading happens only in auto mode; tap mode reads only when the button is tapped", () => {
   assert.ok(screenService.includes("readingMode(now) == CaptureMode.AUTO) autoRead()"));
-  assert.equal((screenService.match(/reader\.read\(/g) ?? []).length, 1, "reader.read is called in one place only");
-  assert.equal((screenService.match(/reader\.captureVisible\(/g) ?? []).length, 1);
-  assert.ok(screenService.indexOf("fun captureNow") < screenService.indexOf("reader.captureVisible("));
+  assert.equal((screenService.match(/\.read\(node/g) ?? []).length, 1, "reading happens in one place only");
+  assert.equal((screenService.match(/\.captureVisible\(node/g) ?? []).length, 1);
+  assert.ok(screenService.indexOf("fun captureNow") < screenService.indexOf(".captureVisible(node"));
   assert.ok(screenService.includes("readingMode(now) != CaptureMode.TAP) return removeBubble()"));
 });
 
@@ -328,4 +352,28 @@ test("every reading mode the page offers is one the app accepts", () => {
   const panel = read("src/components/phone-intake.tsx");
   const offered = [...panel.matchAll(/\{ mode: "(\w+)", label:/g)].map((m) => m[1]).sort();
   assert.deepEqual(offered, ["auto", "off", "tap"]);
+});
+
+// ---- Microsoft Teams on the phone ----
+test("Teams is off until the user chooses it, and choosing it shows the app's own agreement first", () => {
+  assert.ok(policy.includes('val apps: Set<String> = setOf("whatsapp")'));
+  assert.ok(kotlinBridge.includes('app.source == "teams" && !settings.teamsConsented()'));
+  const strings = read("android/app/src/main/res/values/strings.xml");
+  for (const phrase of ["Capture Microsoft Teams messages?", "have not agreed", "Check that your organisation allows it", "switch Teams off at any time", "your own ActionBrain account"]) {
+    assert.ok(strings.includes(phrase), phrase);
+  }
+});
+
+test("a message from Teams is sent with its source, so the server files it as Teams", () => {
+  assert.ok(listener.includes("Payload.message(message.sender, message.text, message.group, false, app.source)"));
+  assert.ok(screenService.includes("m.mine, app.source"));
+  assert.ok(kotlinPayload.includes('if (source != "whatsapp") parts += "\\"source\\":"'));
+});
+
+test("the settings page offers the app switches only to an app that has them", () => {
+  const panel = read("src/components/phone-intake.tsx");
+  assert.ok(panel.includes("bridge.setAppEnabled && ("));
+  assert.ok(panel.includes("setAppEnabled?.(choice.source, e.target.checked)"));
+  const offered = [...panel.matchAll(/source: "(\w+)",\s*label/g)].map((m) => m[1]).sort();
+  assert.deepEqual(offered, ["teams", "whatsapp"]);
 });

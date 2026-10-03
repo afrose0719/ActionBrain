@@ -4,7 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import { Battery, Bell, Check, Copy, Eye, MessageSquare, Pause, Play, RefreshCw, ShieldCheck, Smartphone, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { generateToken, hashToken, parseSenderList } from "@/lib/intake";
-import { getAndroidBridge, parseAndroidStatus, type AndroidBridge, type AndroidStatus, type ReadingMode } from "@/lib/android-bridge";
+import { getAndroidBridge, parseAndroidStatus, type AndroidBridge, type AndroidStatus, type ReadingMode, type ChatAppSource } from "@/lib/android-bridge";
+
+const APP_CHOICES: { source: ChatAppSource; label: string; hint: string }[] = [
+  { source: "whatsapp", label: "WhatsApp", hint: "(and WhatsApp Business). The sender and group filters in this panel apply to WhatsApp only." },
+  {
+    source: "teams",
+    label: "Microsoft Teams",
+    hint: "chats, groups and channel posts as they reach this phone, and open chats if live chat reading is on. If you connect Teams below as well, switch this off to avoid doubles.",
+  },
+];
 
 const READING_CHOICES: { mode: ReadingMode; label: string; hint: string }[] = [
   { mode: "auto", label: "Automatic", hint: "reads the open chat by itself and sends new messages" },
@@ -282,6 +291,25 @@ export function PhoneIntake() {
                           </span>
                         </label>
 
+                        {bridge.setAppEnabled && (
+                          <div role="group" aria-label="Apps to capture" className="grid gap-2">
+                            <p className="text-sm font-medium">Apps</p>
+                            {APP_CHOICES.map((choice) => (
+                              <label key={choice.source} className="flex items-start gap-2">
+                                <input
+                                  type="checkbox"
+                                  className="mt-0.5 h-4 w-4 accent-brand-600"
+                                  checked={phone.controls?.apps[choice.source] ?? false}
+                                  onChange={(e) => change(() => bridge.setAppEnabled?.(choice.source, e.target.checked))}
+                                />
+                                <span>
+                                  {choice.label} <span className="text-ink-muted">{choice.hint}</span>
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+
                         {phone.screenAvailable && (
                           <div role="radiogroup" aria-label="Chat reading" className="grid gap-2">
                             <p className="text-sm font-medium">
@@ -367,6 +395,16 @@ export function PhoneIntake() {
                           Show what the app sees
                         </button>
                       )}
+                      {bridge.notificationStructure && (
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          onClick={() => setStructure(bridge.notificationStructure?.() || "No chat notification seen yet. Receive a message, then press this again.")}
+                        >
+                          <Eye size={14} />
+                          Show what notifications look like
+                        </button>
+                      )}
                       <button type="button" className="btn-secondary btn-sm" onClick={() => bridge.openBatterySettings()}>
                         <Battery size={14} />
                         Battery settings
@@ -378,9 +416,9 @@ export function PhoneIntake() {
                     {structure && (
                       <div>
                         <p className="mb-1 text-xs text-ink-muted">
-                          The shape of WhatsApp&rsquo;s screen: names, positions and text <em>lengths</em> only. No message text is in it, so it is safe to send to the developer if reading does not work.
+                          The shape of what the app sees: names, positions and text <em>lengths</em> only. No message text is in it, so it is safe to send to the developer if reading does not work.
                         </p>
-                        <textarea readOnly aria-label="Shape of WhatsApp's screen" className="input h-56 font-mono text-xs" value={structure} onFocus={(e) => e.target.select()} />
+                        <textarea readOnly aria-label="Shape of the chat app's screen" className="input h-56 font-mono text-xs" value={structure} onFocus={(e) => e.target.select()} />
                       </div>
                     )}
                     <p className="text-xs text-ink-muted">

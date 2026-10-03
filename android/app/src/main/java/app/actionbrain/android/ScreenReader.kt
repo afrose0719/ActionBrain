@@ -10,8 +10,8 @@ package app.actionbrain.android
  *  - it keeps nothing but short-lived in-memory keys, to avoid sending the same message twice.
  *  - it never sends what was already on screen when you opened the chat, or older messages you scroll back to.
  *
- * The ids below are WhatsApp's own names for its screen parts (matched by their ending, so WhatsApp Business works too).
- * WhatsApp can rename them in an update. If it does, this finds nothing and sends nothing. It never guesses.
+ * The names of the screen parts come from [AppIds] (one set per chat app, see ChatApps.kt). An app can rename them in an update.
+ * If it does, this finds nothing and sends nothing. It never guesses.
  */
 data class ScreenNode(
     val id: String?,
@@ -27,15 +27,7 @@ data class ScreenNode(
 /** mine = written by you. For your own messages [chat] is where you wrote it; for others, [sender] is who wrote it. */
 data class ChatMessage(val chat: String, val sender: String, val text: String, val group: String?, val mine: Boolean)
 
-object WhatsAppIds {
-    const val CHAT_NAME = "conversation_contact_name"
-    const val MESSAGE_TEXT = "message_text"
-    const val GROUP_MEMBER = "name_in_group"
-
-    fun matches(node: ScreenNode, name: String): Boolean = node.id?.substringAfter(":id/", "")?.equals(name) == true
-}
-
-class ChatReader {
+class ChatReader(private val ids: AppIds = ChatApps.WHATSAPP.ids) {
     private var chat: String? = null
     private var previous: List<String> = emptyList()
     private var groupChat = false
@@ -92,10 +84,10 @@ class ChatReader {
 
     /** Reads the chat name and messages off the screen and keeps track of which chat this is. Null when no chat is open. */
     private fun look(root: ScreenNode, screenWidth: Int): Look? {
-        val title = findAll(root) { WhatsAppIds.matches(it, WhatsAppIds.CHAT_NAME) }.firstOrNull()?.text?.trim().orEmpty()
+        val title = findAll(root) { ids.isChatName(it) }.firstOrNull()?.text?.trim().orEmpty()
         if (title.isEmpty()) return null // not inside a chat (the chat list, settings...): read nothing
 
-        val nodes = findAll(root) { WhatsAppIds.matches(it, WhatsAppIds.MESSAGE_TEXT) }.filter { !it.text.isNullOrBlank() }.sortedBy { it.top }
+        val nodes = findAll(root) { ids.isMessageText(it) }.filter { !it.text.isNullOrBlank() }.sortedBy { it.top }
         if (title != chat) {
             chat = title
             groupChat = false
@@ -103,7 +95,7 @@ class ChatReader {
             known.clear()
             sent.clear()
         }
-        if (findAll(root) { WhatsAppIds.matches(it, WhatsAppIds.GROUP_MEMBER) }.isNotEmpty()) groupChat = true
+        if (findAll(root) { ids.isGroupMember(it) }.isNotEmpty()) groupChat = true
 
         val messages = nodes.map { toMessage(it, root, title, screenWidth) }
         return Look(messages, messages.map(::keyOf))
@@ -157,8 +149,8 @@ class ChatReader {
         var ancestor: ScreenNode? = parentOf(root, message)
         repeat(4) {
             val a = ancestor ?: return null
-            if (findAll(a) { WhatsAppIds.matches(it, WhatsAppIds.MESSAGE_TEXT) }.size > 1) return null
-            val names = findAll(a) { WhatsAppIds.matches(it, WhatsAppIds.GROUP_MEMBER) }.mapNotNull { it.text?.trim()?.takeIf { t -> t.isNotEmpty() } }
+            if (findAll(a) { ids.isMessageText(it) }.size > 1) return null
+            val names = findAll(a) { ids.isGroupMember(it) }.mapNotNull { it.text?.trim()?.takeIf { t -> t.isNotEmpty() } }
             if (names.size == 1) return names.single()
             ancestor = parentOf(root, a)
         }
@@ -221,6 +213,9 @@ object ScreenStructure {
 object ScreenStatus {
     @Volatile
     var lastStructure: String = ""
+
+    /** The shape of the latest notification from each chat app, with no message text. Keyed by [ChatApp.source]. */
+    val lastNotification = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     @Volatile
     var lastSeenAt: Long = 0

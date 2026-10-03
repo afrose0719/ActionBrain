@@ -26,7 +26,11 @@ data class CapturePolicy(
     val reading: String = CaptureMode.AUTO,
     val pausedUntil: Long = 0,
     val bubbleHiddenUntil: Long = 0,
+    /** Which chat apps are switched on (their [ChatApp.source]). WhatsApp by default; Teams only after the user asks for it. */
+    val apps: Set<String> = setOf("whatsapp"),
 ) {
+    fun appActive(source: String?) = source != null && source in apps
+
     fun paused(now: Long) = pausedUntil > now
 
     fun notificationsActive(now: Long) = notifications && !paused(now)
@@ -49,7 +53,20 @@ class CaptureSettings(context: Context) {
         reading = CaptureMode.parse(prefs.getString("reading", null)) ?: CaptureMode.AUTO,
         pausedUntil = prefs.getLong("pausedUntil", 0),
         bubbleHiddenUntil = prefs.getLong("bubbleHiddenUntil", 0),
+        apps = ChatApps.all.filter { prefs.getBoolean("app_" + it.source, it.source == "whatsapp") }.map { it.source }.toSet(),
     )
+
+    /** False (and nothing changes) if [source] is not a chat app we know. */
+    fun setApp(source: String?, on: Boolean): Boolean {
+        val app = ChatApps.forSource(source) ?: return false
+        prefs.edit().putBoolean("app_" + app.source, on).apply()
+        return true
+    }
+
+    /** Teams is switched on only after the user has read and agreed to the Teams-specific explanation, once. */
+    fun teamsConsented() = prefs.getBoolean("teams_consent", false)
+
+    fun setTeamsConsented() = prefs.edit().putBoolean("teams_consent", true).apply()
 
     fun setNotifications(on: Boolean) = prefs.edit().putBoolean("notifications", on).apply()
 

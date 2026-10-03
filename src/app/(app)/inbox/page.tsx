@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase";
 import { authFetch } from "@/lib/api";
 import { sharedTextFrom } from "@/lib/navigation";
 import { conversationLabel } from "@/lib/conversation";
+import { SYNC_EVERY_MS, syncTeamsIfDue } from "@/lib/teams-sync";
 import { getAndroidBridge, parseSharedFile } from "@/lib/android-bridge";
 import type { RawCommitment } from "@/lib/ai/actions";
 import { SuggestionList } from "@/components/suggestion-list";
@@ -15,7 +16,7 @@ import type { InboxItem, Suggestion } from "@/lib/types";
 
 const BATCH_LIMIT = 10; // one click analyzes at most this many, so a busy phone cannot spend your AI budget in one go
 
-const SOURCES = ["email", "whatsapp", "meeting", "browser", "call", "note"];
+const SOURCES = ["email", "whatsapp", "teams", "meeting", "browser", "call", "note"];
 
 // Android's Share menu opens /inbox?title=...&text=...&url=... (see src/app/manifest.ts "share_target").
 const readShared = () => (typeof window === "undefined" ? null : sharedTextFrom(window.location.search));
@@ -58,6 +59,21 @@ export default function InboxPage() {
     (async () => {
       await load();
     })();
+  }, [load]);
+
+  // If Microsoft Teams is connected (Settings), new Teams messages are fetched when the Inbox opens and every couple of minutes while it stays open.
+  useEffect(() => {
+    let alive = true;
+    const run = async () => {
+      const result = await syncTeamsIfDue(authFetch, sessionStorage, Intl.DateTimeFormat().resolvedOptions().timeZone);
+      if (alive && result && result.stored > 0) await load();
+    };
+    run();
+    const timer = setInterval(run, SYNC_EVERY_MS);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
   }, [load]);
 
   async function saveSuggestions(item: InboxItem, suggestions: Suggestion[]) {

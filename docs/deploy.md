@@ -32,6 +32,7 @@ Already done: https://github.com/afrose0719/ActionBrain. Consider making it **Pr
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API Keys → the **publishable** key (`sb_publishable_...`). **Never** the secret key. |
 | `AI_KEY_ENCRYPTION_KEY` | **the same value as in `.env.local`**, otherwise keys users already saved cannot be read |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | only if you use Calendar |
+| `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` | only if you offer **Connect Microsoft Teams** (see `microsoft-teams-setup.md`, which also lists two redirect addresses to register) |
 
 4. Click **Deploy**. You get a URL like `https://actionbrain-xyz.vercel.app`.
 5. Open `https://YOUR-URL/api/health`. It should show `{"status":"ok", ...}`. If it says `degraded`, a variable is missing or wrong: `supabase: false` means the two Supabase variables, `encryptionKey: false` means `AI_KEY_ENCRYPTION_KEY`. After fixing a variable in Vercel, redeploy (Deployments → ⋯ → Redeploy), because variables are read at build time.

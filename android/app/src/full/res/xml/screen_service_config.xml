@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   What the service is allowed to do, in Android's own terms. Read this file to see its limits:
-   - packageNames: it only receives events from WhatsApp and WhatsApp Business.
+   - packageNames: it only receives events from WhatsApp, WhatsApp Business and Microsoft Teams. The code reads an app only if you switched it on in Settings.
    - canRetrieveWindowContent: it can read the screen. (Needed to read messages.)
    - NO canPerformGestures, NO flagRequestTouchExplorationMode, NO typing events: it cannot click, swipe, or see what you type.
    - flagReportViewIds: lets it recognise WhatsApp's own screen parts (chat name, message text) by name.
@@ -14,4 +14,4 @@
     android:canRetrieveWindowContent="true"
     android:description="@string/screen_service_description"
     android:notificationTimeout="400"
-    android:packageNames="com.whatsapp,com.whatsapp.w4b" />
+    android:packageNames="com.whatsapp,com.whatsapp.w4b,com.microsoft.teams" />

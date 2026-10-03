@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="screen_service_label">ActionBrain chat reading</string>
-    <string name="screen_service_description">Reads the messages in a WhatsApp chat while it is open, and sends them to your own ActionBrain Inbox. It cannot click, type or swipe, and it does not read other apps or what you type.</string>
+    <string name="screen_service_description">Reads the messages in a WhatsApp or Microsoft Teams chat while it is open (only the apps you switch on in ActionBrain), and sends them to your own ActionBrain Inbox. It cannot click, type or swipe, and it does not read other apps or what you type.</string>
 </resources>

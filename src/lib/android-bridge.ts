@@ -25,6 +25,10 @@ export type AndroidBridge = {
   setNotificationsEnabled?(on: boolean): void;
   /** "off", "auto" or "tap". False if the app refused it. */
   setReadingMode?(mode: string): boolean;
+  /** Switch a chat app ("whatsapp" or "teams") on or off. Teams asks for the user's agreement first, in the app's own dialog. */
+  setAppEnabled?(source: string, on: boolean): boolean;
+  /** The shape of the latest notification from each chat app, with no message text. */
+  notificationStructure?(): string;
   /** Pause all capture for this many minutes (1 to 1440). 0 resumes. */
   pauseCapture?(minutes: number): void;
   /** Bring the floating button back after it was hidden for the day. */
@@ -35,6 +39,8 @@ export type AndroidBridge = {
 
 export type ReadingMode = "off" | "auto" | "tap";
 
+export type ChatAppSource = "whatsapp" | "teams";
+
 /** The user's capture choices, as the app holds them. Null in `AndroidStatus.controls` for an app too old to have them. */
 export type CaptureControls = {
   notificationsOn: boolean;
@@ -43,6 +49,8 @@ export type CaptureControls = {
   pausedUntil: number;
   /** The floating button was hidden for today. */
   bubbleHidden: boolean;
+  /** Which chat apps are switched on. An app older than 0.5.0 does not say, so this shows WhatsApp on and Teams off. */
+  apps: Record<ChatAppSource, boolean>;
 };
 
 export type AndroidStatus = {
@@ -126,5 +134,11 @@ function parseControls(d: Record<string, unknown>): CaptureControls | null | und
   if (mode !== "off" && mode !== "auto" && mode !== "tap") return undefined;
   if (typeof d.notificationsOn !== "boolean" || typeof d.bubbleHidden !== "boolean") return undefined;
   if (typeof d.pausedUntil !== "number" || !Number.isFinite(d.pausedUntil) || d.pausedUntil < 0) return undefined;
-  return { notificationsOn: d.notificationsOn, readingMode: mode, pausedUntil: Math.floor(d.pausedUntil), bubbleHidden: d.bubbleHidden };
+  let apps: Record<ChatAppSource, boolean> = { whatsapp: true, teams: false };
+  if (d.apps !== undefined) {
+    const a = d.apps as Record<string, unknown> | null;
+    if (typeof a !== "object" || a === null || typeof a.whatsapp !== "boolean" || typeof a.teams !== "boolean") return undefined;
+    apps = { whatsapp: a.whatsapp, teams: a.teams };
+  }
+  return { notificationsOn: d.notificationsOn, readingMode: mode, pausedUntil: Math.floor(d.pausedUntil), bubbleHidden: d.bubbleHidden, apps };
 }

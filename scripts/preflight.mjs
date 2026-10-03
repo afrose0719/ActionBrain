@@ -9,6 +9,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import {
   checkEncryptionKey,
   checkGoogle,
+  checkMicrosoft,
   checkSupabaseKey,
   checkSupabaseUrl,
   checkTrackedFiles,
@@ -43,6 +44,7 @@ add(SECTION_ENV, checkSupabaseUrl(url));
 add(SECTION_ENV, checkSupabaseKey(key));
 add(SECTION_ENV, checkEncryptionKey(env.AI_KEY_ENCRYPTION_KEY));
 add(SECTION_ENV, checkGoogle(env));
+add(SECTION_ENV, checkMicrosoft(env));
 
 // ---------- database (only if the key is the safe public kind) ----------
 const SECTION_DB = "Database";
@@ -76,6 +78,7 @@ if (!canProbe) {
       ["meetings", "id", { title: "preflight", transcript: "x" }],
       ["google_connections", "user_id", { encrypted_refresh_token: "x" }],
       ["intake_settings", "user_id", { token_hash: "x" }],
+      ["microsoft_connections", "user_id", { encrypted_refresh_token: "x" }],
     ];
     for (const [table, col, sample] of tables) {
       const read = await call(`/rest/v1/${table}?select=${col}&limit=1`);
@@ -99,6 +102,15 @@ if (!canProbe) {
     if (intake.status === 200 && intake.body === "invalid") add(SECTION_DB, pass("ingest_message exists and rejects a wrong token."));
     else if (intake.status === 404) add(SECTION_DB, fail('Function "ingest_message" is missing. Run supabase/milestone22-intake.sql. Phone message intake will not work without it.'));
     else add(SECTION_DB, fail(`ingest_message answered a wrong token with ${intake.status} (${JSON.stringify(intake.body)}). It must answer "invalid".`));
+
+    // the signed-in door must refuse anonymous visitors (and the internal function must not be reachable at all)
+    const mine = await call("/rest/v1/rpc/ingest_my_message", { method: "POST", body: JSON.stringify({ p_source: "teams", p_sender: "x", p_text: "x" }) });
+    if (mine.body?.code === "42501") add(SECTION_DB, pass("ingest_my_message exists and refuses anonymous visitors."));
+    else if (mine.status === 404) add(SECTION_DB, fail('Function "ingest_my_message" is missing. Run supabase/milestone27-teams.sql. Microsoft Teams sync will not work without it.'));
+    else add(SECTION_DB, fail(`ingest_my_message answered an anonymous call with ${mine.status} (${mine.body?.code ?? "?"}). It must refuse anonymous callers.`));
+    const internal = await call("/rest/v1/rpc/_ingest_chat_message", { method: "POST", body: "{}" });
+    if (internal.status === 404 || internal.body?.code === "42501") add(SECTION_DB, pass("The internal ingest function cannot be called from outside."));
+    else add(SECTION_DB, fail(`The internal ingest function answered an anonymous call with ${internal.status}. It must not be callable from outside.`));
 
     const grouping = await call("/rest/v1/inbox_items?select=last_message_at,message_count&limit=1");
     if (grouping.status === 200) add(SECTION_DB, pass("inbox_items has the conversation-grouping columns."));
