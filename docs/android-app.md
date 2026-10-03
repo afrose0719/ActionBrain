@@ -73,7 +73,13 @@ The app opens `actionbrainUrl` (default: the deployed site) and refuses to build
 - **no autonomous actions** on the device. This service only reads, and you approve every task, but whether Google sees it that way is **their decision**. "Trusted app" is not an exemption, and a misleading or undeclared use can get the app or developer account suspended.
 Plan: submit the `play` build first (notifications and chat export), then add the declaration for `full`'s service when you are ready.
 
-**What can go wrong (tested only with unit tests, not on your phone yet):**
+**It switches itself off in some situations: switch it back on, and avoid these.**
+- **Force-stopping the app** (Android Settings → Apps → ActionBrain → Force stop, or `adb shell am force-stop`) makes Android **turn the service off**. This happened during development. Restart the app by opening it normally instead.
+- Some phones' "close all apps" or battery cleaners do the same.
+- **Updating the app by USB** (`adb install -r`) can leave it switched off on some phones. Check **Settings → Phone messages → This phone** afterwards: it says "Live chat reading is off" when that happens. Press **Turn on live chat reading** and switch it on again.
+- You can check from a computer (no screen needed): `adb shell settings get secure enabled_accessibility_services` should list `app.actionbrain.android/app.actionbrain.android.WhatsAppScreenService`.
+
+**What can go wrong (verified so far on one phone: a Samsung SM-A066B on Android 16, with the floating button, notifications and live reading working; other phones and WhatsApp versions untested):**
 - It finds WhatsApp's screen parts by their internal names (`conversation_contact_name`, `message_text`, `name_in_group`). WhatsApp can rename them in an update. If it does, the service finds nothing and **sends nothing**; it never guesses.
 - Telling *your* messages from other people's uses where the text sits on screen (right edge = you). That is a rule of thumb and can be wrong for very long messages. The thresholds are the first thing to tune on a real phone.
 - Group member names are read from the same message row. If WhatsApp changes the layout, the sender becomes "Unknown", never another member's name.
