@@ -35,6 +35,8 @@ export type AndroidBridge = {
   showBubbleAgain?(): void;
   /** Ask Android to add the Quick Settings tile (Android 13+), or explain how. */
   addQuickSettingsTile?(): void;
+  /** Zero-touch switches changed: the app forgets a remembered "off" (app 0.6.0+). */
+  autoSettingsChanged?(): void;
 };
 
 export type ReadingMode = "off" | "auto" | "tap";

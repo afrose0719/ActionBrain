@@ -31,6 +31,7 @@ class WhatsAppListenerService : NotificationListenerService() {
         val message = NotificationParser.parse(app, data) ?: return
         if (!recent.firstTime("${app.source}|${message.sender}|${message.group}|${message.text}")) return
         IntakeClient.send(this, config, Payload.message(message.sender, message.text, message.group, false, app.source))
+        AutoProcess.onCaptured(this) // zero-touch: analyse once the conversation has been quiet for a while (only if switched on)
     }
 
     @Suppress("DEPRECATION") // the typed getParcelableArray needs API 33; this app supports 26+

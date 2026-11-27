@@ -10,6 +10,7 @@ const fullBridge = () => ({
   isApp: () => true,
   saveIntake: () => true,
   clearIntake: () => {},
+  autoSettingsChanged: () => {},
   takeSharedFile: () => "",
   openScreenReadingSettings: () => {},
   screenStructure: () => "",
@@ -193,7 +194,7 @@ test("the app and the website use the same token format", () => {
 
 test("every method the website calls exists in the app's bridge, and nothing extra is exposed", () => {
   const exposed = [...kotlinBridge.matchAll(/@JavascriptInterface\s+fun (\w+)/g)].map((m) => m[1]).sort();
-  assert.deepEqual(exposed, ["addQuickSettingsTile", "clearIntake", "isApp", "notificationStructure", "openAppInfo", "openBatterySettings", "openNotificationAccess", "openScreenReadingSettings", "pauseCapture", "saveIntake", "screenStructure", "setAppEnabled", "setNotificationsEnabled", "setReadingMode", "showBubbleAgain", "status", "takeSharedFile"]);
+  assert.deepEqual(exposed, ["addQuickSettingsTile", "autoSettingsChanged", "clearIntake", "isApp", "notificationStructure", "openAppInfo", "openBatterySettings", "openNotificationAccess", "openScreenReadingSettings", "pauseCapture", "saveIntake", "screenStructure", "setAppEnabled", "setNotificationsEnabled", "setReadingMode", "showBubbleAgain", "status", "takeSharedFile"]);
   const website = Object.keys(fullBridge()).sort();
   assert.deepEqual(exposed, website);
 });

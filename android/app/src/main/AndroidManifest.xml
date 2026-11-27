@@ -44,6 +44,12 @@
             </intent-filter>
         </service>
 
+        <!-- Zero-touch: asks the server to analyse quiet conversations. Android's JobScheduler runs it; nothing else can start it. -->
+        <service
+            android:name=".AutoProcessJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <!-- Receives notifications once YOU switch on "Notification access" for ActionBrain. Only WhatsApp's are used. -->
         <service
             android:name=".WhatsAppListenerService"

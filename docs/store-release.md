@@ -21,7 +21,7 @@ Policies change: re-read each source in the console before you submit.
 | Data type (Play category) | Collected | Shared | Optional? | Purpose | Notes |
 |---|---|---|---|---|---|
 | Personal info → Email address | Yes | No | Required | Account management | Sign-in |
-| Messages → Other in-app messages (notification text from chat apps the user switches on) | Yes | No* | Optional | App functionality | *Sent to the user's own AI provider only when they press Analyze, at their request (user-initiated transfer) |
+| Messages → Other in-app messages (notification text from chat apps the user switches on) | Yes | No* | Optional | App functionality | *Sent to the user's own AI provider when they press Analyze, or automatically if they switch on "Analyse automatically" (Milestone 29). Check whether Play treats the automatic case as "shared" with a service provider; it is the user's own BYOK provider. |
 | Audio → Voice or sound recordings | See the audio paths below | — | — | — | |
 | App activity → Other user-generated content (tasks, commitments, transcripts, captured text) | Yes | No* | Required | App functionality | *as above |
 | Location, contacts, financial, health, device IDs | No | — | — | — | |

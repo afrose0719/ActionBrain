@@ -36,6 +36,7 @@ export default function PrivacyPage() {
         <h2>Who it is shared with</h2>
         <ul>
           <li><b>Your AI provider, only when you ask:</b> when you press Analyze (or use the command box or search), the relevant text is sent to the AI provider you chose, using your own key. Their privacy terms apply to that request.</li>
+          <li><b>Your AI provider, automatically, only if you switch it on:</b> with Settings → Automatic → &quot;Analyse automatically&quot; on, captured phone messages are sent to your AI provider in the background (at most 50 a day), without you pressing Analyze. It is off unless you turn it on, and turning it off stops it at once.</li>
           <li><b>Service providers that host the app:</b> Supabase (database and sign-in) and Vercel (web hosting).</li>
           <li><b>Nobody else.</b> We never sell your data, never use it for advertising, and never let people read it, except when you ask us for help, for security, or when the law requires it.</li>
         </ul>

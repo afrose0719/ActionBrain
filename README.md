@@ -67,6 +67,7 @@ See `extension/README.md`. Load the `extension` folder at `chrome://extensions` 
 - **Browser hardening:** a Content Security Policy, `X-Frame-Options`, `nosniff`, a strict referrer policy and HSTS (production). See `next.config.ts` for the trade-offs.
 
 ## Docs
+- `docs/zero-touch.md`: automatic background analysis and opt-in auto-create (Milestone 29): setup, security, keep-alive, what is untested
 - `docs/store-release.md`: Google Play, Chrome Web Store, Edge and Firefox checklist, Data safety draft, official sources
 - `docs/reviews/`: external review rounds (round-2.md lists every instruction with its status) (ChatGPT and Gemini) and what was done about each point
 - `docs/deploy.md`: deploying to Vercel, step by step

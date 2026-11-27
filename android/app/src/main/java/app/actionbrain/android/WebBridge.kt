@@ -33,6 +33,10 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
     @JavascriptInterface
     fun clearIntake() = tokens.clear()
 
+    /** The zero-touch switches changed in Settings: forget a remembered "off" so the next message is processed. */
+    @JavascriptInterface
+    fun autoSettingsChanged() = AutoProcess.forgetOff(activity)
+
     /** A chat export that was shared to the app, as JSON {"name","text"} or {"error"}. "" if nothing is waiting. Reading it clears it. */
     @JavascriptInterface
     fun takeSharedFile(): String = PendingShare.take()

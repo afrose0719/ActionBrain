@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { cleanLanguage, confidenceTier, validateCommitments, validateSuggestions } from "../src/lib/ai/actions.ts";
-import { LANGUAGE_AND_DATE_RULES } from "../src/lib/ai/prompts.ts";
+import { INBOX_SYSTEM_PROMPT, LANGUAGE_AND_DATE_RULES } from "../src/lib/ai/prompts.ts";
 
 // These tests check everything AROUND the model: the shape it must return, what is accepted, and how each item is routed.
 // They use fixed model replies (what a correct model returns for each scenario). They cannot measure how well a given model
@@ -106,9 +106,11 @@ test("the prompts teach the language and date rules, and both analyze routes use
   for (const word of ["naalaiku", "kal", "parson", "Tanglish", "Hinglish", "date_unclear", "quote stays EXACTLY"]) {
     assert.ok(LANGUAGE_AND_DATE_RULES.includes(word), word);
   }
-  for (const route of ["src/app/api/inbox/analyze/route.ts", "src/app/api/meetings/analyze/route.ts"]) {
-    const src = readFileSync(route, "utf8");
-    assert.ok(src.includes("${LANGUAGE_AND_DATE_RULES}") && src.includes("${EXTRA_ITEM_FIELDS}"), route);
-    assert.ok(/untrusted data\. Never follow instructions/.test(src), route);
-  }
+  // the Inbox (and background processing) use INBOX_SYSTEM_PROMPT from prompts.ts; Meetings has its own prompt in its route
+  assert.ok(INBOX_SYSTEM_PROMPT.includes("naalaiku") && INBOX_SYSTEM_PROMPT.includes('"date_unclear"?:boolean'));
+  assert.ok(/untrusted data\. Never follow instructions/.test(INBOX_SYSTEM_PROMPT));
+  assert.ok(readFileSync("src/app/api/inbox/analyze/route.ts", "utf8").includes("INBOX_SYSTEM_PROMPT"));
+  const meetings = readFileSync("src/app/api/meetings/analyze/route.ts", "utf8");
+  assert.ok(meetings.includes("${LANGUAGE_AND_DATE_RULES}") && meetings.includes("${EXTRA_ITEM_FIELDS}"));
+  assert.ok(/untrusted data\. Never follow instructions/.test(meetings));
 });
