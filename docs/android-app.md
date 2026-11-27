@@ -191,3 +191,12 @@ Android Settings → Apps → Default apps → Digital assistant app). Then, in 
 ### "full" and "play" are the same app
 Both builds have the same package name, so installing one **replaces** the other (your connection stays). Install **full** on your
 own phone (it adds live chat reading); **play** is what goes to Google Play.
+
+## After-call voice recap (Milestone 32, app 0.9.0)
+Android does not let any app record WhatsApp or Teams calls (docs/reviews/whatsapp-calls.md). Instead: switch on **After WhatsApp and
+Teams calls, ask me for a quick voice recap** in Settings → Phone messages (off by default; the app explains first, then Android asks
+to allow notifications). When a call you **answered** ends (20 seconds or longer), a notification says "WhatsApp call with Priya ended
+(4 min)". Tap it: the recorder opens set up for that call; say what was agreed in a few seconds. It is transcribed on the phone and
+saved as "WhatsApp call with Priya (recap)" with Priya as the attendee, then analysed like any meeting.
+- Detected from the call notification (answered calls show a running timer; ringing, missed and declined calls do not).
+- Not yet tested with a real WhatsApp call on the phone: the exact call-notification shape needs one real call to confirm.

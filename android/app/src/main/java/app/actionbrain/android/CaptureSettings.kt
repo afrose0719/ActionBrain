@@ -25,6 +25,8 @@ data class CapturePolicy(
     val notifications: Boolean = true,
     val reading: String = CaptureMode.AUTO,
     val pausedUntil: Long = 0,
+    /** Milestone 32: after a WhatsApp/Teams call, offer a quick voice recap. Opt-in. */
+    val callRecap: Boolean = false,
     val bubbleHiddenUntil: Long = 0,
     /** Which chat apps are switched on (their [ChatApp.source]). WhatsApp by default; Teams only after the user asks for it. */
     val apps: Set<String> = setOf("whatsapp"),
@@ -52,6 +54,7 @@ class CaptureSettings(context: Context) {
         notifications = prefs.getBoolean("notifications", true),
         reading = CaptureMode.parse(prefs.getString("reading", null)) ?: CaptureMode.AUTO,
         pausedUntil = prefs.getLong("pausedUntil", 0),
+        callRecap = prefs.getBoolean("call_recap", false),
         bubbleHiddenUntil = prefs.getLong("bubbleHiddenUntil", 0),
         apps = ChatApps.all.filter { prefs.getBoolean("app_" + it.source, it.source == "whatsapp") }.map { it.source }.toSet(),
     )
@@ -62,6 +65,8 @@ class CaptureSettings(context: Context) {
         prefs.edit().putBoolean("app_" + app.source, on).apply()
         return true
     }
+
+    fun setCallRecap(on: Boolean) = prefs.edit().putBoolean("call_recap", on).apply()
 
     /** Teams is switched on only after the user has read and agreed to the Teams-specific explanation, once. */
     fun teamsConsented() = prefs.getBoolean("teams_consent", false)

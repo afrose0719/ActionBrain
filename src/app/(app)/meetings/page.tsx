@@ -8,6 +8,7 @@ import { authFetch } from "@/lib/api";
 import { cleanTranscript } from "@/lib/transcript";
 import { SuggestionList } from "@/components/suggestion-list";
 import { CallRecorder, type RecordingResult } from "@/components/call-recorder";
+import { parseRecap } from "@/lib/recap";
 import { formatDuration } from "@/lib/audio";
 import { isSharedId, takeSharedFile } from "@/lib/shared-files";
 import type { RawCommitment } from "@/lib/ai/actions";
@@ -32,6 +33,7 @@ export default function MeetingsPage() {
   const [showForm, setShowForm] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
   const [sharedFile, setSharedFile] = useState<File | null>(null);
+  const [recap, setRecap] = useState<{ name: string; via: string; mins: number } | null>(null);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(nowForInput);
   const [attendees, setAttendees] = useState("");
@@ -56,6 +58,18 @@ export default function MeetingsPage() {
       await load();
     })();
   }, [load]);
+
+  // After-call recap from the Android app (Milestone 32): /meetings?recap=<caller>&via=<app>&mins=<n>. Opens the recorder at once.
+  useEffect(() => {
+    const parsed = parseRecap(window.location.search);
+    if (!parsed) return;
+    window.history.replaceState(null, "", "/meetings");
+    const id = requestAnimationFrame(() => {
+      setRecap(parsed);
+      setShowRecorder(true);
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   // A call recording shared from the Android share sheet arrives as /meetings?shared=<id>. Pick it up once and open the recorder with it.
   useEffect(() => {
@@ -206,15 +220,16 @@ export default function MeetingsPage() {
     const { data, error } = await createClient()
       .from("meetings")
       .insert({
-        title: `Call on ${when} (${formatDuration(r.durationSec)})`,
+        title: recap ? `${recap.via} call with ${recap.name} (recap)` : `Call on ${when} (${formatDuration(r.durationSec)})`,
         meeting_date: r.startedAt.toISOString(),
-        attendees: null,
+        attendees: recap ? recap.name : null, // the AI then knows who "she" or "he" in the recap is
         transcript: r.text,
       })
       .select()
       .single();
     if (error) return setError(error.message);
     setShowRecorder(false);
+    setRecap(null);
     await load();
     analyze(data as Meeting);
   }
@@ -274,10 +289,12 @@ export default function MeetingsPage() {
       {showRecorder && (
         <CallRecorder
           initialFile={sharedFile}
+          recapOf={recap}
           onTranscript={saveRecording}
           onClose={() => {
             setShowRecorder(false);
             setSharedFile(null);
+            setRecap(null);
           }}
         />
       )}

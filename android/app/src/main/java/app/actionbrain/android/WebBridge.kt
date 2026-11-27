@@ -72,7 +72,8 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
             ",\"sent\":" + stats.sent + ",\"failed\":" + stats.failed + ",\"lastAt\":" + stats.lastAt +
             ",\"lastResult\":" + Payload.quote(stats.lastResult) +
             ",\"queued\":" + Outbox.count(activity) + ",\"dropped\":" + stats.dropped +
-            ",\"assistant\":" + isAssistant() + "}"
+            ",\"assistant\":" + isAssistant() +
+            ",\"callRecap\":" + capture.callRecap + ",\"notificationsAllowed\":" + notificationsAllowed() + "}"
     }
 
     /**
@@ -212,6 +213,32 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
 
     private fun screenServiceEnabled(): Boolean =
         Settings.Secure.getString(activity.contentResolver, "enabled_accessibility_services")?.contains(activity.packageName + "/") == true
+
+    /**
+     * Milestone 32: after-call voice recap. Switching it ON first shows the app's own explanation (prominent disclosure), then asks
+     * Android for permission to show notifications (Android 13+). Switching it off is immediate.
+     */
+    @JavascriptInterface
+    fun setCallRecap(on: Boolean) {
+        val settings = CaptureSettings(activity)
+        if (!on) return settings.setCallRecap(false)
+        activity.runOnUiThread {
+            AlertDialog.Builder(activity)
+                .setTitle(R.string.recap_consent_title)
+                .setMessage(R.string.recap_consent_body)
+                .setPositiveButton(R.string.screen_consent_agree) { _, _ ->
+                    settings.setCallRecap(true)
+                    if (Build.VERSION.SDK_INT >= 33 && !notificationsAllowed()) {
+                        activity.requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 3)
+                    }
+                }
+                .setNegativeButton(R.string.consent_not_now, null)
+                .show()
+        }
+    }
+
+    private fun notificationsAllowed(): Boolean =
+        activity.getSystemService(android.app.NotificationManager::class.java)?.areNotificationsEnabled() == true
 
     /** Is ActionBrain the default digital assistant? (Android 10+ asks the role manager; older versions keep it in a setting.) */
     private fun isAssistant(): Boolean =

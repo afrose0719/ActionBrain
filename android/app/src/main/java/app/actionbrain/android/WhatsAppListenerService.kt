@@ -15,6 +15,7 @@ import android.service.notification.StatusBarNotification
  */
 class WhatsAppListenerService : NotificationListenerService() {
     private val recent = RecentSet()
+    private val calls = CallTracker()
 
     /** Android reconnects the listener after a reboot or an update: send anything still waiting in the offline queue. */
     override fun onListenerConnected() {
@@ -27,6 +28,7 @@ class WhatsAppListenerService : NotificationListenerService() {
         if (!policy.appActive(app.source)) return // this app is switched off in Settings
         if (!policy.notificationsActive(System.currentTimeMillis())) return // notifications switched off, or paused
         val notification = sbn.notification
+        trackCall(app, sbn) // after-call recap (Milestone 32): only answered calls, only if switched on
         val data = describe(notification)
 
         // Keep the SHAPE of the latest notification (never its words), so a parsing problem can be diagnosed without sharing a message.
@@ -37,6 +39,29 @@ class WhatsAppListenerService : NotificationListenerService() {
         if (!recent.firstTime("${app.source}|${message.sender}|${message.group}|${message.text}")) return
         IntakeClient.send(this, config, Payload.message(message.sender, message.text, message.group, false, app.source))
         AutoProcess.onCaptured(this) // zero-touch: analyse once the conversation has been quiet for a while (only if switched on)
+    }
+
+    /** A call notification went away: if it was an answered call that mattered, offer the after-call recap. */
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        val app = ChatApps.forPackage(sbn.packageName) ?: return
+        val recap = calls.onRemoved(sbn.key, System.currentTimeMillis()) ?: return
+        val policy = CaptureSettings(this).load()
+        if (!policy.callRecap || !policy.appActive(app.source) || policy.paused(System.currentTimeMillis())) return
+        CallRecapNotifier.show(this, app, recap)
+    }
+
+    private fun trackCall(app: ChatApp, sbn: StatusBarNotification) {
+        val n = sbn.notification
+        calls.onPosted(
+            key = sbn.key,
+            app = app.label,
+            isCall = n.category == Notification.CATEGORY_CALL,
+            ongoing = n.flags and Notification.FLAG_ONGOING_EVENT != 0,
+            showsTimer = n.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER, false),
+            caller = n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
+            startedAt = n.`when`,
+            now = System.currentTimeMillis(),
+        )
     }
 
     @Suppress("DEPRECATION") // the typed getParcelableArray needs API 33; this app supports 26+

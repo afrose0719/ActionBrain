@@ -13,6 +13,7 @@ const fullBridge = () => ({
   autoSettingsChanged: () => {},
   clearQueue: () => 0,
   openAssistantSettings: () => {},
+  setCallRecap: () => {},
   takeSharedFile: () => "",
   openScreenReadingSettings: () => {},
   screenStructure: () => "",
@@ -72,6 +73,8 @@ test("a good status is read", () => {
     queued: 0, // an app older than 0.7.0 has no offline queue
     dropped: 0,
     assistant: false, // an app older than 0.8.0 cannot be the assistant
+    callRecap: false,
+    notificationsAllowed: false,
     controls: null, // this status came from an app too old to have capture controls
   });
 });
@@ -199,7 +202,7 @@ test("the app and the website use the same token format", () => {
 
 test("every method the website calls exists in the app's bridge, and nothing extra is exposed", () => {
   const exposed = [...kotlinBridge.matchAll(/@JavascriptInterface\s+fun (\w+)/g)].map((m) => m[1]).sort();
-  assert.deepEqual(exposed, ["addQuickSettingsTile", "autoSettingsChanged", "clearIntake", "clearQueue", "isApp", "notificationStructure", "openAppInfo", "openAssistantSettings", "openBatterySettings", "openNotificationAccess", "openScreenReadingSettings", "pauseCapture", "saveIntake", "screenStructure", "setAppEnabled", "setNotificationsEnabled", "setReadingMode", "showBubbleAgain", "status", "takeSharedFile"]);
+  assert.deepEqual(exposed, ["addQuickSettingsTile", "autoSettingsChanged", "clearIntake", "clearQueue", "isApp", "notificationStructure", "openAppInfo", "openAssistantSettings", "openBatterySettings", "openNotificationAccess", "openScreenReadingSettings", "pauseCapture", "saveIntake", "screenStructure", "setAppEnabled", "setCallRecap", "setNotificationsEnabled", "setReadingMode", "showBubbleAgain", "status", "takeSharedFile"]);
   const website = Object.keys(fullBridge()).sort();
   assert.deepEqual(exposed, website);
 });
@@ -212,7 +215,7 @@ test("the app sends to the address the website's route serves", () => {
 
 test("the app asks for the bare minimum of permissions", () => {
   const perms = [...manifest.matchAll(/<uses-permission android:name="([^"]+)"/g)].map((m) => m[1]).sort();
-  assert.deepEqual(perms, ["android.permission.ACCESS_NETWORK_STATE", "android.permission.INTERNET", "android.permission.RECORD_AUDIO"]); // network state: normal permission, needed by network jobs (0.8.1)
+  assert.deepEqual(perms, ["android.permission.ACCESS_NETWORK_STATE", "android.permission.INTERNET", "android.permission.POST_NOTIFICATIONS", "android.permission.RECORD_AUDIO"]); // network state: needed by network jobs (0.8.1); notifications: the after-call recap, asked only when switched on (0.9.0)
   for (const forbidden of ["READ_CALL_LOG", "READ_PHONE_STATE", "READ_SMS", "RECEIVE_SMS", "READ_CONTACTS", "CAMERA", "ACCESS_FINE_LOCATION", "MANAGE_EXTERNAL_STORAGE"]) {
     assert.ok(!manifest.includes(forbidden), forbidden);
   }
@@ -367,7 +370,7 @@ test("the Quick Settings tile only changes the pause time, and is protected by t
   assert.ok(!tile.includes("setReading") && !tile.includes("setNotifications"));
   // the tile is not a permission request: the manifest lists only these
   const perms = [...manifest.matchAll(/<uses-permission android:name="([^"]+)"/g)].map((m) => m[1]).sort();
-  assert.deepEqual(perms, ["android.permission.ACCESS_NETWORK_STATE", "android.permission.INTERNET", "android.permission.RECORD_AUDIO"]); // network state: normal permission, needed by network jobs (0.8.1)
+  assert.deepEqual(perms, ["android.permission.ACCESS_NETWORK_STATE", "android.permission.INTERNET", "android.permission.POST_NOTIFICATIONS", "android.permission.RECORD_AUDIO"]); // network state: needed by network jobs (0.8.1); notifications: the after-call recap, asked only when switched on (0.9.0)
 });
 
 test("the settings panel offers the controls only to an app that has them", () => {

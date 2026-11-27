@@ -41,6 +41,8 @@ export type AndroidBridge = {
   clearQueue?(): number;
   /** Explain, then open Android's default-assistant screen, so a long-press captures the open chat (app 0.8.0+, Play-safe). */
   openAssistantSettings?(): void;
+  /** After-call recap on or off; switching on shows the app's own explanation, then Android's notification permission (0.9.0+). */
+  setCallRecap?(on: boolean): void;
 };
 
 export type ReadingMode = "off" | "auto" | "tap";
@@ -80,6 +82,10 @@ export type AndroidStatus = {
   dropped: number;
   /** ActionBrain is the default digital assistant (long-press to capture). false for apps older than 0.8.0. */
   assistant: boolean;
+  /** The after-call recap is switched on (0.9.0+). */
+  callRecap: boolean;
+  /** Android lets ActionBrain show notifications (needed for the recap). */
+  notificationsAllowed: boolean;
   controls: CaptureControls | null;
 };
 
@@ -122,9 +128,12 @@ export function parseAndroidStatus(json: unknown): AndroidStatus | null {
   if (queued === null || dropped === null) return null;
   const assistant = optional(d.assistant);
   if (assistant === null) return null;
+  const callRecap = optional(d.callRecap);
+  const notificationsAllowed = optional(d.notificationsAllowed);
+  if (callRecap === null || notificationsAllowed === null) return null;
   const controls = parseControls(d);
   if (controls === undefined) return null;
-  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, screenAvailable, screenOn, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120), queued, dropped, assistant, controls };
+  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, screenAvailable, screenOn, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120), queued, dropped, assistant, callRecap, notificationsAllowed, controls };
 }
 
 export type SharedFile = { ok: true; name: string; text: string } | { ok: false; error: string };

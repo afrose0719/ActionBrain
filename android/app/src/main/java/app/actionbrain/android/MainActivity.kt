@@ -52,7 +52,7 @@ class MainActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == Intent.ACTION_SEND) web.loadUrl(startUrl(intent)) // text shared from another app
+        if (intent.action == Intent.ACTION_SEND || intent.action == RecapIntent.ACTION) web.loadUrl(startUrl(intent)) // shared text, or an after-call recap
     }
 
     override fun onResume() {
@@ -84,6 +84,9 @@ class MainActivity : Activity() {
      * Anything else opens the dashboard.
      */
     private fun startUrl(intent: Intent?): String {
+        if (intent?.action == RecapIntent.ACTION) {
+            RecapIntent.safeUrl(BuildConfig.APP_URL, intent.getStringExtra(RecapIntent.EXTRA_URL))?.let { return it }
+        }
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain" && sharedStream(intent) != null) {
             readSharedFile(sharedStream(intent)!!)
             return BuildConfig.APP_URL + "/inbox?shared=file"

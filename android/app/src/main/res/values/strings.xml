@@ -35,4 +35,16 @@
     <string name="assist_app_off">%1$s capture is off in ActionBrain Settings.</string>
     <string name="assist_consent_title">Make ActionBrain your assistant?</string>
     <string name="assist_consent_body">Then, in any WhatsApp or Teams chat, long-press the power or home button and ActionBrain reads that one screen.\n\nWhat it reads: the chat name and the messages visible at that moment, only when you long-press. Never in the background, never what you type.\n\nWhat happens to it: you see how many messages were found and nothing is sent until you tap Send. Then they go to your own ActionBrain Inbox over an encrypted connection, and to your AI provider only when analysed with your own key.\n\nThis replaces your current assistant (for example Google Assistant or Gemini) for the long-press. You can switch back at any time in Android Settings → Default apps → Digital assistant app.</string>
+
+    <!-- Milestone 32: after-call voice recap -->
+    <string name="recap_channel">After-call recap</string>
+    <string name="recap_channel_description">Asks for a short voice recap after a WhatsApp or Teams call.</string>
+    <string name="recap_title">%1$s call with %2$s ended (%3$s)</string>
+    <string name="recap_text">Anything to remember? Tap and say it in a few seconds.</string>
+    <string name="recap_consent_title">Ask for a recap after calls?</string>
+    <string name="recap_consent_body">Android does not let any app record WhatsApp or Teams calls. Instead, when a call you answered ends, ActionBrain can show a notification: "Call with Priya ended (4 min). Anything to remember?".
+
+Tap it and say in a few seconds what was agreed. Only your own short recap is recorded, after you tap Start. Nothing of the call itself is recorded. The recap is transcribed on this phone and turned into tasks.
+
+ActionBrain learns that a call happened, and the name of the caller, from the call notification. Missed and very short calls are ignored. Android will ask whether ActionBrain may show notifications. You can switch this off at any time.</string>
 </resources>
