@@ -240,7 +240,7 @@ export function CallRecorder({
   return (
     <section className="card card-body mb-6 grid gap-4" aria-label="Record a call">
       <div className="flex items-center justify-between">
-        <h2>Record a call, or use a call recording</h2>
+        <h2>{recapOf ? `Recap: ${recapOf.via} call with ${recapOf.name}` : "Record a call, or use a call recording"}</h2>
         <button type="button" className="btn-ghost btn-sm" onClick={onClose} disabled={busy} aria-label="Close recorder">
           <X size={16} />
         </button>
@@ -248,6 +248,18 @@ export function CallRecorder({
 
       {phase === "idle" || phase === "starting" ? (
         <>
+          {recapOf && (
+            <div className="animate-rise grid gap-3 rounded-md border border-brand-100 bg-brand-50 px-4 py-3 text-brand-700">
+              <p>
+                <strong>Your {recapOf.mins}-minute call with {recapOf.name} just ended.</strong> Press Start and say in a few seconds what was
+                agreed: who does what, by when. Only your own voice is recorded.
+              </p>
+              <button className="btn-primary w-fit" onClick={start} disabled={phase === "starting"}>
+                <Mic size={16} />
+                {phase === "starting" ? "Starting..." : "Start recap"}
+              </button>
+            </div>
+          )}
           <p className="flex items-start gap-2 rounded-md border border-line bg-canvas px-3 py-2 text-ink-muted">
             <Lock size={16} className="mt-0.5 shrink-0 text-success-600" />
             <span>
@@ -293,7 +305,7 @@ export function CallRecorder({
             </div>
           )}
 
-          <p className="text-xs text-ink-muted">
+          <p className={`text-xs text-ink-muted ${recapOf ? "hidden" : ""}`}>
             The microphone only hears what is in the room. For a phone call, <strong>turn on speaker</strong> so both sides are picked up. Recording
             stops by itself after {MAX_MINUTES} minutes.
           </p>
@@ -304,15 +316,6 @@ export function CallRecorder({
               <span className="min-w-0 truncate">
                 Recording received: <strong>{file.name}</strong>
               </span>
-            </p>
-          )}
-
-          {recapOf && (
-            <p className="animate-rise rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-brand-700">
-              <strong>
-                Recap your {recapOf.via} call with {recapOf.name} ({recapOf.mins} min).
-              </strong>{" "}
-              Press Start and say in a few seconds what was agreed: who does what, by when. Only your own voice is recorded.
             </p>
           )}
 
