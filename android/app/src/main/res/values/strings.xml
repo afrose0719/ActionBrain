@@ -23,4 +23,16 @@
     <string name="teams_consent_common">The text is sent to your own ActionBrain account and kept in your Inbox. It is sent to your AI provider only when you press Analyze, using your own key. It is never sold or used for advertising.\n\nThese are work messages, and the people in them have not agreed to this. Check that your organisation allows it.\n\nYou can switch Teams off at any time in ActionBrain Settings.</string>
     <string name="screen_consent_agree">Agree and continue</string>
     <string name="screen_consent_cancel">Cancel</string>
+
+    <!-- Milestone 31: assistant capture (works in the Google Play build) -->
+    <string name="assist_reading">Reading this chat…</string>
+    <string name="assist_detail">Only the chat name and the messages on screen. Nothing is sent until you tap Send.</string>
+    <string name="assist_send">Send to ActionBrain</string>
+    <string name="assist_cancel">Cancel</string>
+    <string name="assist_sent">Sent %1$d to your Inbox</string>
+    <string name="assist_not_chat">Open a WhatsApp or Teams chat, then long-press again.</string>
+    <string name="assist_not_connected">Connect this phone first: ActionBrain Settings → Phone messages → New token.</string>
+    <string name="assist_app_off">%1$s capture is off in ActionBrain Settings.</string>
+    <string name="assist_consent_title">Make ActionBrain your assistant?</string>
+    <string name="assist_consent_body">Then, in any WhatsApp or Teams chat, long-press the power or home button and ActionBrain reads that one screen.\n\nWhat it reads: the chat name and the messages visible at that moment, only when you long-press. Never in the background, never what you type.\n\nWhat happens to it: you see how many messages were found and nothing is sent until you tap Send. Then they go to your own ActionBrain Inbox over an encrypted connection, and to your AI provider only when analysed with your own key.\n\nThis replaces your current assistant (for example Google Assistant or Gemini) for the long-press. You can switch back at any time in Android Settings → Default apps → Digital assistant app.</string>
 </resources>

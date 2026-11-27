@@ -71,7 +71,31 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
             ",\"apps\":{" + ChatApps.all.joinToString(",") { "\"" + it.source + "\":" + capture.appActive(it.source) } + "}" +
             ",\"sent\":" + stats.sent + ",\"failed\":" + stats.failed + ",\"lastAt\":" + stats.lastAt +
             ",\"lastResult\":" + Payload.quote(stats.lastResult) +
-            ",\"queued\":" + Outbox.count(activity) + ",\"dropped\":" + stats.dropped + "}"
+            ",\"queued\":" + Outbox.count(activity) + ",\"dropped\":" + stats.dropped +
+            ",\"assistant\":" + isAssistant() + "}"
+    }
+
+    /**
+     * Milestone 31: make ActionBrain the default digital assistant, so a long-press captures the open chat (works in the Play build).
+     * The app's own explanation and "Agree" come first (prominent disclosure); then Android's own default-assistant screen, where the
+     * user makes the choice. Already the assistant: go straight to that screen (to switch back).
+     */
+    @JavascriptInterface
+    fun openAssistantSettings() {
+        val target = Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)
+        if (isAssistant()) return launch(target)
+        activity.runOnUiThread {
+            AlertDialog.Builder(activity)
+                .setTitle(R.string.assist_consent_title)
+                .setMessage(R.string.assist_consent_body)
+                .setPositiveButton(R.string.screen_consent_agree) { _, _ ->
+                    if (runCatching { activity.startActivity(target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isFailure) {
+                        launch(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+                    }
+                }
+                .setNegativeButton(R.string.consent_not_now, null)
+                .show()
+        }
     }
 
     /**
@@ -188,6 +212,14 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
 
     private fun screenServiceEnabled(): Boolean =
         Settings.Secure.getString(activity.contentResolver, "enabled_accessibility_services")?.contains(activity.packageName + "/") == true
+
+    /** Is ActionBrain the default digital assistant? (Android 10+ asks the role manager; older versions keep it in a setting.) */
+    private fun isAssistant(): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            activity.getSystemService(android.app.role.RoleManager::class.java)?.isRoleHeld(android.app.role.RoleManager.ROLE_ASSISTANT) == true
+        } else {
+            Settings.Secure.getString(activity.contentResolver, "assistant")?.startsWith(activity.packageName + "/") == true
+        }
 
     private fun listenerEnabled(): Boolean =
         Settings.Secure.getString(activity.contentResolver, "enabled_notification_listeners")?.contains(activity.packageName) == true

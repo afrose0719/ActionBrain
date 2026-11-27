@@ -12,6 +12,25 @@ test("the shared Android manifest (used by the Google Play build) never declares
   assert.equal(existsSync("android/app/src/play/AndroidManifest.xml"), false);
 });
 
+test("assistant capture (Milestone 31) is in the shared manifest, bound only by the system, and needs no Accessibility service", () => {
+  const main = readFileSync("android/app/src/main/AndroidManifest.xml", "utf8");
+  for (const name of [".ActionBrainAssistService", ".AssistSessionService", ".AssistRecognitionService"]) {
+    const at = main.indexOf(`android:name="${name}"`);
+    assert.ok(at > 0, name);
+    const block = main.slice(at, main.indexOf(">", at));
+    assert.match(block, /android:permission="android\.permission\.BIND_VOICE_INTERACTION"/, `${name} can only be bound by the system`);
+  }
+  const xml = readFileSync("android/app/src/main/res/xml/assist_service.xml", "utf8");
+  assert.match(xml, /android:supportsAssist="true"/);
+  assert.match(xml, /android:supportsLaunchVoiceAssistFromKeyguard="false"/, "never from the lock screen");
+  const session = readFileSync("android/app/src/main/java/app/actionbrain/android/AssistService.kt", "utf8");
+  assert.ok(session.indexOf("setOnClickListener { sendAll() }") > 0, "nothing is sent until the user taps Send");
+  assert.ok(!/onHandleAssist[\s\S]{0,800}IntakeClient\.send/.test(session.slice(session.indexOf("override fun onHandleAssist"), session.indexOf("private fun read("))), "reading the screen never sends by itself");
+  const bridge = readFileSync("android/app/src/main/java/app/actionbrain/android/WebBridge.kt", "utf8");
+  const open = bridge.slice(bridge.indexOf("fun openAssistantSettings"), bridge.indexOf("fun openAssistantSettings") + 1200);
+  assert.ok(open.indexOf("assist_consent_body") < open.indexOf("startActivity(target"), "disclosure before Android's screen");
+});
+
 test("the Accessibility service lives only in the sideloaded full build", () => {
   const full = readFileSync("android/app/src/full/AndroidManifest.xml", "utf8");
   assert.match(full, /BIND_ACCESSIBILITY_SERVICE/);
