@@ -28,6 +28,10 @@ export type Suggestion = {
   related_person?: string | null;
   confidence: number; // 0..1
   quote: string; // the part of the message this came from
+  // review round 3 (missing on suggestions saved before it)
+  language?: string | null; // "en", "ta", "hi-Latn" (Hinglish)...
+  date_unclear?: boolean; // the AI guessed the date (e.g. Hindi "kal" = yesterday or tomorrow)
+  tier?: "high" | "review" | "clarify";
   state: SuggestionState;
 };
 

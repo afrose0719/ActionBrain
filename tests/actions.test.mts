@@ -66,7 +66,7 @@ test("suggestions: keeps good entries, drops bad ones, clamps confidence", () =>
 test("suggestions: ignores injected fields and caps the list at 10", () => {
   const out = validateSuggestions({ suggestions: Array.from({ length: 11 }, (_, i) => ({ title: "t" + i, user_id: "hack", state: "created" })) });
   assert.equal(out.length, 10);
-  assert.deepEqual(Object.keys(out[0]).sort(), ["confidence", "description", "due_date", "priority", "quote", "related_person", "title"]);
+  assert.deepEqual(Object.keys(out[0]).sort(), ["confidence", "date_unclear", "description", "due_date", "language", "priority", "quote", "related_person", "tier", "title"]);
 });
 
 test("suggestions: non-object input gives an empty list", () => {
