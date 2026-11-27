@@ -2,8 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Brain } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { Logo } from "@/components/brand";
 import { safeNextPath } from "@/lib/navigation";
 
 // Shown after the user deletes their account (they are sent to /login?deleted=1).
@@ -82,9 +82,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-brand-600 text-white">
-            <Brain size={20} />
-          </span>
+          <Logo size={48} alive className="mb-4" />
           <h1>Welcome to ActionBrain</h1>
           <p className="page-subtitle">Log in or create an account to continue.</p>
         </div>
@@ -132,6 +130,9 @@ export default function LoginPage() {
             Forgot password?
           </button>
         </form>
+        <p className="mt-4 text-center text-xs text-ink-muted">
+          Free and open source. <a className="underline" href="/privacy">Privacy</a> · <a className="underline" href="/terms">Terms</a>
+        </p>
       </div>
     </main>
   );

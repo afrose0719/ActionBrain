@@ -3,6 +3,22 @@
 import { useState } from "react";
 import { Check, Pencil, X } from "lucide-react";
 import type { Priority, Suggestion } from "@/lib/types";
+import { confidenceTier } from "@/lib/ai/actions";
+
+const TIER = {
+  high: { label: "Sure", className: "text-success-600" },
+  review: { label: "Please check", className: "text-ink-muted" },
+  clarify: { label: "Unclear: check before adding", className: "text-danger-600" },
+} as const;
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  ta: "Tamil", hi: "Hindi", ml: "Malayalam", te: "Telugu", kn: "Kannada", "ta-Latn": "Tanglish", "hi-Latn": "Hinglish", mixed: "Mixed languages",
+};
+
+/** The band shown to the user. Older saved suggestions have no tier, so it is worked out the same way. */
+export function tierOf(s: Pick<Suggestion, "tier" | "confidence" | "quote" | "date_unclear">) {
+  return s.tier ?? confidenceTier(s.confidence, { hasQuote: Boolean(s.quote), dateUnclear: Boolean(s.date_unclear) });
+}
 
 function toInputValue(iso: string | null) {
   if (!iso) return "";
@@ -80,8 +96,12 @@ export function SuggestionList({
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                     <span className={`badge-${s.priority}`}>{s.priority}</span>
                     {s.due_date && <span className="text-ink-muted">Due {new Date(s.due_date).toLocaleString()}</span>}
+                    {s.date_unclear && <span className="text-danger-600">Date unclear: please check</span>}
                     {s.related_person && <span className="text-ink-muted">{s.related_person}</span>}
-                    <span className="text-ink-subtle">{Math.round(s.confidence * 100)}% confident</span>
+                    <span className={TIER[tierOf(s)].className}>
+                      {TIER[tierOf(s)].label} ({Math.round(s.confidence * 100)}%)
+                    </span>
+                    {s.language && LANGUAGE_NAMES[s.language] && <span className="text-ink-subtle">{LANGUAGE_NAMES[s.language]}</span>}
                   </div>
                   {s.quote && <p className="mt-2 border-l-2 border-line pl-3 text-xs text-ink-muted">{s.quote}</p>}
                 </div>

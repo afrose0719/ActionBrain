@@ -1,6 +1,7 @@
 import { getUserClient } from "@/lib/server-auth";
 import { encrypt } from "@/lib/crypto";
 import { askModel, isProvider } from "@/lib/ai/provider";
+import { LIMITS, readJsonBody } from "@/lib/body";
 
 // GET: what is configured (never returns the key itself)
 export async function GET(request: Request) {
@@ -20,7 +21,9 @@ export async function PUT(request: Request) {
   const auth = await getUserClient(request);
   if (!auth) return Response.json({ error: "Not logged in." }, { status: 401 });
 
-  const body = await request.json().catch(() => null);
+  const read = await readJsonBody(request, LIMITS.small);
+  if (!read.ok) return read.response;
+  const body = read.value;
   const provider = body?.provider;
   const apiKey = typeof body?.apiKey === "string" ? body.apiKey.trim() : "";
   const model = typeof body?.model === "string" && body.model.trim() ? body.model.trim().slice(0, 100) : null;

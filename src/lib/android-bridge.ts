@@ -35,6 +35,10 @@ export type AndroidBridge = {
   showBubbleAgain?(): void;
   /** Ask Android to add the Quick Settings tile (Android 13+), or explain how. */
   addQuickSettingsTile?(): void;
+  /** Zero-touch switches changed: the app forgets a remembered "off" (app 0.6.0+). */
+  autoSettingsChanged?(): void;
+  /** Delete messages still waiting in the phone's offline queue; returns how many (app 0.7.0+). */
+  clearQueue?(): number;
 };
 
 export type ReadingMode = "off" | "auto" | "tap";
@@ -68,6 +72,10 @@ export type AndroidStatus = {
   /** Milliseconds since 1970, 0 if nothing yet. */
   lastAt: number;
   lastResult: string;
+  /** Messages kept (encrypted) on the phone, waiting for a network. 0 for apps older than 0.7.0. */
+  queued: number;
+  /** Messages the phone had to drop (queue full, older than 7 days, unreadable). Never silent. */
+  dropped: number;
   controls: CaptureControls | null;
 };
 
@@ -104,9 +112,13 @@ export function parseAndroidStatus(json: unknown): AndroidStatus | null {
   const screenOn = optional(d.screenOn);
   if (screenAvailable === null || screenOn === null) return null;
   if (sent === null || failed === null || lastAt === null || typeof d.lastResult !== "string") return null;
+  // Milestone 30 fields: missing (older app) = 0; present but wrong = refuse
+  const queued = d.queued === undefined ? 0 : count(d.queued);
+  const dropped = d.dropped === undefined ? 0 : count(d.dropped);
+  if (queued === null || dropped === null) return null;
   const controls = parseControls(d);
   if (controls === undefined) return null;
-  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, screenAvailable, screenOn, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120), controls };
+  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, screenAvailable, screenOn, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120), queued, dropped, controls };
 }
 
 export type SharedFile = { ok: true; name: string; text: string } | { ok: false; error: string };

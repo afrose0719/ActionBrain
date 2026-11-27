@@ -1,6 +1,7 @@
 import { getUserClient } from "@/lib/server-auth";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { MicrosoftError, accessTokenFrom, fetchMyId, microsoftConfig, syncTeams } from "@/lib/microsoft";
+import { LIMITS, readJsonBody } from "@/lib/body";
 
 export const maxDuration = 30; // reading chats can take a few seconds
 
@@ -20,7 +21,9 @@ export async function POST(request: Request) {
   if (!auth) return Response.json({ error: "Not logged in." }, { status: 401 });
   if (!microsoftConfig()) return Response.json({ error: "Microsoft Teams is not set up on this server yet.", code: "NOT_CONFIGURED" }, { status: 503 });
 
-  const body = await request.json().catch(() => null);
+  const read = await readJsonBody(request, LIMITS.small);
+  if (!read.ok) return read.response;
+  const body = read.value;
   const timeZone = validZone(body?.timeZone) ? body.timeZone : null;
 
   const { data: connection } = await auth.supabase

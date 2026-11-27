@@ -8,6 +8,7 @@ import { useInstall } from "@/lib/use-install";
 import { DataControls } from "@/components/data-controls";
 import { PhoneIntake } from "@/components/phone-intake";
 import { MicrosoftTeams } from "@/components/microsoft-teams";
+import { ZeroTouchSettings } from "@/components/zero-touch-settings";
 import { PROVIDERS, type ProviderId } from "@/lib/ai/provider";
 
 type Saved = { provider: ProviderId; model: string | null; key_hint: string | null } | null;
@@ -313,6 +314,8 @@ export default function SettingsPage() {
           </div>
         </form>
       </section>
+
+      <ZeroTouchSettings />
 
       <DataControls />
     </>

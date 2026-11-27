@@ -520,7 +520,8 @@ test("schema.sql carries the Microsoft table and the same functions as the migra
   const sql = read("supabase/milestone27-teams.sql");
   assert.ok(schema.includes("create table if not exists public.microsoft_connections"));
   const fn = (raw: string, name: string) => raw.slice(raw.indexOf(`create or replace function public.${name}(`), raw.indexOf("$$;", raw.indexOf(`create or replace function public.${name}(`)) + 3);
-  for (const name of ["_ingest_chat_message", "ingest_message", "ingest_my_message"]) assert.equal(fn(schema, name), fn(sql, name), name);
+  // ingest_message moved on in Milestone 28 (event ids); tests/payload-limits.test.mts compares that one
+  for (const name of ["_ingest_chat_message", "ingest_my_message"]) assert.equal(fn(schema, name), fn(sql, name), name);
 });
 
 test("the setup guide exists and names every setting the server needs", () => {

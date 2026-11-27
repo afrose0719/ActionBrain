@@ -85,6 +85,28 @@ export function validateAction(raw: unknown, tasks: TaskRef[]): Action {
   }
 }
 
+/** Languages the extractor may report (ISO 639-1, plus romanised Tamil/Hindi for Tanglish/Hinglish). Anything else becomes "other". */
+export const LANGUAGES = ["en", "ta", "hi", "ml", "te", "kn", "ta-Latn", "hi-Latn", "mixed", "other"] as const;
+export type Language = (typeof LANGUAGES)[number];
+
+export function cleanLanguage(v: unknown): Language | null {
+  if (typeof v !== "string" || !v.trim()) return null;
+  const found = LANGUAGES.find((l) => l.toLowerCase() === v.trim().toLowerCase());
+  return found ?? "other";
+}
+
+/**
+ * How sure we are, as three bands that decide what the user is asked to do:
+ *   high    (>= 0.90): ready to add;  review (0.60-0.89): check it;  clarify (< 0.60): ask before trusting it.
+ * Never "high" without evidence (an exact quote), with an unclear date, or (for a promise) without a known owner.
+ * 0.90 is a product threshold agreed in review round 4, not a measured accuracy: the model's confidence is not calibrated.
+ */
+export type Tier = "high" | "review" | "clarify";
+export function confidenceTier(confidence: number, opts: { hasQuote: boolean; dateUnclear: boolean; ownerKnown?: boolean }): Tier {
+  const tier: Tier = confidence >= 0.9 ? "high" : confidence >= 0.6 ? "review" : "clarify";
+  return tier === "high" && (!opts.hasQuote || opts.dateUnclear || opts.ownerKnown === false) ? "review" : tier;
+}
+
 export type RawSuggestion = {
   title: string;
   description: string | null;
@@ -93,6 +115,9 @@ export type RawSuggestion = {
   related_person: string | null;
   confidence: number;
   quote: string;
+  language: Language | null;
+  date_unclear: boolean;
+  tier: Tier;
 };
 
 /** Checks the AI's list of detected tasks for the Inbox. Bad entries are dropped, never trusted. */
@@ -112,6 +137,8 @@ export function validateSuggestions(raw: unknown): RawSuggestion[] {
     });
     if (!changes?.title) continue;
     const confidence = typeof r.confidence === "number" ? Math.min(1, Math.max(0, r.confidence)) : 0.5;
+    const quote = typeof r.quote === "string" ? r.quote.trim().slice(0, 300) : "";
+    const date_unclear = r.date_unclear === true;
     out.push({
       title: changes.title,
       description: changes.description ?? null,
@@ -119,7 +146,10 @@ export function validateSuggestions(raw: unknown): RawSuggestion[] {
       due_date: changes.due_date ?? null,
       related_person: changes.related_person ?? null,
       confidence,
-      quote: typeof r.quote === "string" ? r.quote.slice(0, 300) : "",
+      quote,
+      language: cleanLanguage(r.language),
+      date_unclear,
+      tier: confidenceTier(confidence, { hasQuote: quote !== "", dateUnclear: date_unclear }),
     });
   }
   return out;
@@ -133,6 +163,9 @@ export type RawCommitment = {
   due_date: string | null;
   confidence: number;
   quote: string;
+  language: Language | null;
+  date_unclear: boolean;
+  tier: Tier;
 };
 
 const short = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
@@ -148,14 +181,21 @@ export function validateCommitments(raw: unknown): RawCommitment[] {
     const description = short(r.description, 300);
     if (!description || (r.direction !== "mine" && r.direction !== "theirs")) continue;
     const due = typeof r.due_date === "string" && !Number.isNaN(Date.parse(r.due_date)) ? new Date(r.due_date).toISOString() : null;
+    const confidence = typeof r.confidence === "number" ? Math.min(1, Math.max(0, r.confidence)) : 0.5;
+    const quote = short(r.quote, 300) ?? "";
+    const date_unclear = r.date_unclear === true;
+    const owner_name = short(r.owner, 120);
     out.push({
       direction: r.direction,
-      owner_name: short(r.owner, 120),
+      owner_name,
       counterparty: short(r.counterparty, 120),
       description,
       due_date: due,
-      confidence: typeof r.confidence === "number" ? Math.min(1, Math.max(0, r.confidence)) : 0.5,
-      quote: short(r.quote, 300) ?? "",
+      confidence,
+      quote,
+      language: cleanLanguage(r.language),
+      date_unclear,
+      tier: confidenceTier(confidence, { hasQuote: quote !== "", dateUnclear: date_unclear, ownerKnown: owner_name !== null }),
     });
   }
   return out;

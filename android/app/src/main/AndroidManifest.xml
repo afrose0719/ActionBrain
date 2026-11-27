@@ -44,6 +44,18 @@
             </intent-filter>
         </service>
 
+        <!-- Zero-touch: asks the server to analyse quiet conversations. Android's JobScheduler runs it; nothing else can start it. -->
+        <!-- Milestone 30: sends messages waiting in the encrypted offline queue when there is a network. -->
+        <service
+            android:name=".OutboxJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <service
+            android:name=".AutoProcessJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <!-- Receives notifications once YOU switch on "Notification access" for ActionBrain. Only WhatsApp's are used. -->
         <service
             android:name=".WhatsAppListenerService"

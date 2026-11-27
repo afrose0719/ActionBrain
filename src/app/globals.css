@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 /*
- * ActionBrain design system — the single source of truth for look and feel.
- * Change a token here and the whole app updates.
+ * ActionBrain design system — the single source of truth for look and feel (Phase 32A, docs/brand.md).
+ * Brand: calm deep ink + action teal on a warm canvas; amber marks "ActionBrain did this" / "needs you".
+ * Light and dark use the SAME token names, so every screen follows the theme. Every text/background pair is
+ * contrast-tested in both themes (tests/a11y.test.mts).
+ * Motion: short and purposeful, transform + opacity only, and all of it switches off under "reduce motion".
  */
 
 @theme {
@@ -21,38 +24,208 @@
   --text-2xl: 1.875rem;
   --text-2xl--line-height: 2.25rem;
 
-  /* Brand */
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
+  /* Brand: action teal */
+  --color-brand-50: #e6f2f0;
+  --color-brand-100: #cfe6e2;
+  --color-brand-500: #2f9488;
+  --color-brand-600: #24756e;
+  --color-brand-700: #1e635d;
+  --color-on-brand: #ffffff; /* text on a brand (or danger) filled button */
+  --color-amber: #dca85b; /* decorative accent only (sparks, glows), never text */
 
-  /* Surfaces and text */
-  --color-canvas: #f8fafc;
+  /* Surfaces and text: warm canvas, deep ink */
+  --color-canvas: #f5f3ed;
   --color-surface: #ffffff;
-  --color-line: #e2e8f0; /* decorative dividers and card edges */
-  --color-line-strong: #7c8aa0; /* the edge of form fields: needs 3:1 against the page (WCAG 1.4.11) */
-  --color-ink: #0f172a;
-  --color-ink-muted: #475569;
-  --color-ink-subtle: #5f6f86;
+  --color-line: #e6e2d8; /* decorative dividers and card edges */
+  --color-line-strong: #7d8590; /* the edge of form fields: needs 3:1 against the page (WCAG 1.4.11) */
+  --color-ink: #182638;
+  --color-ink-muted: #4a5565;
+  --color-ink-subtle: #5b6675;
 
   /* Status */
-  --color-danger-50: #fef2f2;
-  --color-danger-600: #c81e1e;
-  --color-warning-50: #fffbeb;
-  --color-warning-600: #a8480a;
-  --color-success-50: #f0fdf4;
-  --color-success-600: #15803d;
+  --color-danger-50: #fdf0ee;
+  --color-danger-600: #b42318;
+  --color-warning-50: #fbf2e1;
+  --color-warning-600: #93520a;
+  --color-success-50: #ecf6f0;
+  --color-success-600: #1b7346;
 
   /* Shape */
   --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06), 0 1px 3px rgb(15 23 42 / 0.04);
+  --radius-lg: 0.875rem;
+  --shadow-card: 0 1px 2px rgb(24 38 56 / 0.05), 0 2px 6px rgb(24 38 56 / 0.04);
+  --shadow-lift: 0 6px 18px rgb(24 38 56 / 0.1), 0 2px 4px rgb(24 38 56 / 0.06);
+
+  /* Motion (review round 7): short, purposeful */
+  --ease-soft: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 140ms;
+  --duration-standard: 220ms;
+  --duration-gentle: 320ms;
+}
+
+/* Dark theme: the same token names, new values. Follows the system unless the page sets data-theme="light" or "dark". */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-brand-50: #12302d;
+    --color-brand-100: #1b423e;
+    --color-brand-500: #4cbcaf;
+    --color-brand-600: #4cbcaf;
+    --color-brand-700: #8fdcd2;
+    --color-on-brand: #0b1418;
+    --color-amber: #e2b05f;
+    --color-canvas: #0e161f;
+    --color-surface: #16202b;
+    --color-line: #26323f;
+    --color-line-strong: #6f7b8a;
+    --color-ink: #e9edf1;
+    --color-ink-muted: #b3bcc7;
+    --color-ink-subtle: #9aa5b3;
+    --color-danger-50: #3a1c1a;
+    --color-danger-600: #f07a6e;
+    --color-warning-50: #33260f;
+    --color-warning-600: #e2b05f;
+    --color-success-50: #11291d;
+    --color-success-600: #5fc98e;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-lift: 0 8px 22px rgb(0 0 0 / 0.45);
+  }
+}
+:root[data-theme="dark"] {
+  --color-brand-50: #12302d;
+  --color-brand-100: #1b423e;
+  --color-brand-500: #4cbcaf;
+  --color-brand-600: #4cbcaf;
+  --color-brand-700: #8fdcd2;
+  --color-on-brand: #0b1418;
+  --color-amber: #e2b05f;
+  --color-canvas: #0e161f;
+  --color-surface: #16202b;
+  --color-line: #26323f;
+  --color-line-strong: #6f7b8a;
+  --color-ink: #e9edf1;
+  --color-ink-muted: #b3bcc7;
+  --color-ink-subtle: #9aa5b3;
+  --color-danger-50: #3a1c1a;
+  --color-danger-600: #f07a6e;
+  --color-warning-50: #33260f;
+  --color-warning-600: #e2b05f;
+  --color-success-50: #11291d;
+  --color-success-600: #5fc98e;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-lift: 0 8px 22px rgb(0 0 0 / 0.45);
+}
+
+/* ---------- Motion ---------- */
+@keyframes ab-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ab-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ab-glow {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-amber) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+}
+@keyframes ab-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes ab-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes ab-twinkle {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.85) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(15deg);
+  }
+}
+
+/* Cards and list rows rise in one after another: give each style={{"--i": index}} */
+@utility animate-rise {
+  animation: ab-rise var(--duration-gentle) var(--ease-soft) both;
+  animation-delay: calc(min(var(--i, 0), 12) * 45ms);
+}
+/* A check mark or badge that pops in (task completed, item added) */
+@utility animate-pop {
+  animation: ab-pop var(--duration-gentle) var(--ease-spring) both;
+}
+/* One soft amber ring, twice, when ActionBrain added something by itself: noticed, not noisy */
+@utility animate-glow {
+  animation: ab-glow 1.4s var(--ease-soft) 2;
+}
+/* The spark that marks AI work: a small twinkle, only while something is being worked on */
+@utility animate-twinkle {
+  animation: ab-twinkle 1.6s var(--ease-soft) infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+/* An SVG stroke that draws itself (the logo's check mark): set stroke-dasharray/offset to the path length */
+@utility animate-draw {
+  animation: ab-draw 700ms var(--ease-soft) 250ms forwards;
+}
+/* Placeholder while loading: a soft moving sheen instead of "Loading..." */
+@utility skeleton {
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, var(--color-line) 25%, color-mix(in srgb, var(--color-line) 40%, var(--color-surface)) 50%, var(--color-line) 75%);
+  background-size: 200% 100%;
+  animation: ab-shimmer 1.4s linear infinite;
+}
+/* Buttons answer the finger with a tiny press */
+@utility press {
+  transition:
+    transform var(--duration-fast) var(--ease-soft),
+    background-color var(--duration-fast) var(--ease-soft),
+    box-shadow var(--duration-standard) var(--ease-soft);
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+/* Cards you can open lift gently under the pointer */
+@utility lift {
+  transition:
+    transform var(--duration-standard) var(--ease-soft),
+    box-shadow var(--duration-standard) var(--ease-soft);
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
 }
 
 @utility btn {
-  @apply inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  @apply press inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 @utility badge {
@@ -61,7 +234,7 @@
 
 @layer base {
   html {
-    color-scheme: light;
+    color-scheme: light dark;
   }
   body {
     background: var(--color-canvas);
@@ -73,8 +246,8 @@
   h1 {
     font-size: var(--text-xl);
     line-height: var(--text-xl--line-height);
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-weight: 650;
+    letter-spacing: -0.015em;
   }
   h2 {
     font-size: var(--text-base);
@@ -87,13 +260,14 @@
   }
 }
 
-/* Respect the "reduce motion" setting in the operating system. */
+/* Respect the "reduce motion" setting in the operating system: every animation and transition becomes instant. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
@@ -107,10 +281,14 @@
   .card-body {
     @apply p-5;
   }
+  /* A card you can tap or open: lifts under the pointer */
+  .card-interactive {
+    @apply lift rounded-lg border border-line bg-surface shadow-card;
+  }
 
   /* Buttons */
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700;
+    @apply btn bg-brand-600 text-on-brand shadow-card hover:bg-brand-700;
   }
   .btn-secondary {
     @apply btn border border-line bg-surface text-ink hover:bg-canvas;
@@ -131,6 +309,11 @@
   }
   .input {
     @apply h-9 w-full rounded-md border border-line-strong bg-surface px-3 text-sm text-ink placeholder:text-ink-subtle;
+    transition: border-color var(--duration-fast) var(--ease-soft), box-shadow var(--duration-fast) var(--ease-soft);
+  }
+  .input:focus {
+    border-color: var(--color-brand-500);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-500) 22%, transparent);
   }
   textarea.input {
     @apply h-auto py-2;
@@ -152,12 +335,12 @@
 
   /* Page structure */
   .page-header {
-    @apply mb-6 flex items-start justify-between gap-4;
+    @apply animate-rise mb-6 flex items-start justify-between gap-4;
   }
   .page-subtitle {
     @apply mt-1 text-sm text-ink-muted;
   }
   .alert-error {
-    @apply rounded-md border border-danger-600/20 bg-danger-50 px-3 py-2 text-sm text-danger-600;
+    @apply animate-rise rounded-md border border-danger-600/20 bg-danger-50 px-3 py-2 text-sm text-danger-600;
   }
 }

@@ -1,6 +1,7 @@
 import { getUserClient } from "@/lib/server-auth";
 import { encrypt } from "@/lib/crypto";
 import { MicrosoftError, buildAuthUrl, exchangeCode, microsoftConfig, redirectUri } from "@/lib/microsoft";
+import { LIMITS, readJsonBody } from "@/lib/body";
 
 // GET ?state=...  ->  the Microsoft sign-in URL to send the browser to
 export async function GET(request: Request) {
@@ -25,7 +26,9 @@ export async function POST(request: Request) {
   const auth = await getUserClient(request);
   if (!auth) return Response.json({ error: "Not logged in." }, { status: 401 });
 
-  const body = await request.json().catch(() => null);
+  const read = await readJsonBody(request, LIMITS.small);
+  if (!read.ok) return read.response;
+  const body = read.value;
   const code = typeof body?.code === "string" ? body.code : "";
   if (!code || code.length > 4000) return Response.json({ error: "Missing code." }, { status: 400 });
 

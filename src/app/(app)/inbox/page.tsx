@@ -13,6 +13,7 @@ import type { RawCommitment } from "@/lib/ai/actions";
 import { SuggestionList } from "@/components/suggestion-list";
 import { importFrom, MAX_IMPORT, TOO_BIG, type ImportResult } from "@/lib/import/chat";
 import type { InboxItem, Suggestion } from "@/lib/types";
+import { AutoAdded } from "@/components/auto-added";
 
 const BATCH_LIMIT = 10; // one click analyzes at most this many, so a busy phone cannot spend your AI budget in one go
 
@@ -247,6 +248,8 @@ export default function InboxPage() {
           </p>
         </div>
       </div>
+
+      <AutoAdded />
 
       <form onSubmit={addItem} className="card card-body mb-6 grid gap-4">
         <div className="grid gap-4 sm:grid-cols-3">

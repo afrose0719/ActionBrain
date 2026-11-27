@@ -1,5 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 // A tiny fake of chrome.storage so the extension's own code can run under Node.
 const store: Record<string, unknown> = {};
@@ -110,4 +111,13 @@ test("send: a database rejection is reported, not hidden", async () => {
   const r = await sendToInbox("hello");
   assert.equal(r.ok, false);
   assert.match(r.error, /row-level security/);
+});
+
+test("the extension opens the deployed site over HTTPS (never localhost), the same site the Android app opens", () => {
+  const config = readFileSync("extension/config.js", "utf8");
+  const url = config.match(/export const APP_URL = "([^"]+)"/)?.[1] ?? "";
+  assert.match(url, /^https:\/\//);
+  assert.doesNotMatch(url, /localhost|127\.0\.0\.1/);
+  const gradle = readFileSync("android/gradle.properties", "utf8");
+  assert.ok(gradle.includes(`actionbrainUrl=${url}`), "extension and Android app point at the same site");
 });

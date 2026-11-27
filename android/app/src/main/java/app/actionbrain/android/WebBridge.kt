@@ -27,11 +27,28 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
     fun saveIntake(address: String?, token: String?): Boolean {
         if (!Payload.isIntakeAddress(address, BuildConfig.APP_URL) || !Payload.looksLikeToken(token)) return false
         tokens.save(address!!, token!!)
+        Outbox.flushSoon(activity) // messages kept while the old token was refused (401) go out now
         return true
     }
 
+    /** Disconnect: forget the token AND delete every message still waiting to be sent (as the privacy policy says). */
     @JavascriptInterface
-    fun clearIntake() = tokens.clear()
+    fun clearIntake() {
+        tokens.clear()
+        Outbox.clear(activity)
+    }
+
+    /** "Clear waiting messages": delete what has not been sent yet. Returns how many were deleted. */
+    @JavascriptInterface
+    fun clearQueue(): Int {
+        val n = Outbox.count(activity)
+        Outbox.clear(activity)
+        return n
+    }
+
+    /** The zero-touch switches changed in Settings: forget a remembered "off" so the next message is processed. */
+    @JavascriptInterface
+    fun autoSettingsChanged() = AutoProcess.forgetOff(activity)
 
     /** A chat export that was shared to the app, as JSON {"name","text"} or {"error"}. "" if nothing is waiting. Reading it clears it. */
     @JavascriptInterface
@@ -53,11 +70,26 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
             ",\"bubbleHidden\":" + capture.bubbleHidden(System.currentTimeMillis()) +
             ",\"apps\":{" + ChatApps.all.joinToString(",") { "\"" + it.source + "\":" + capture.appActive(it.source) } + "}" +
             ",\"sent\":" + stats.sent + ",\"failed\":" + stats.failed + ",\"lastAt\":" + stats.lastAt +
-            ",\"lastResult\":" + Payload.quote(stats.lastResult) + "}"
+            ",\"lastResult\":" + Payload.quote(stats.lastResult) +
+            ",\"queued\":" + Outbox.count(activity) + ",\"dropped\":" + stats.dropped + "}"
     }
 
+    /**
+     * Notification access. Google Play's User Data policy needs a prominent disclosure, from the app itself, with an explicit
+     * "agree", BEFORE the system screen opens. "Not now" opens nothing. Already allowed: go straight to the screen (to turn it off).
+     */
     @JavascriptInterface
-    fun openNotificationAccess() = launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+    fun openNotificationAccess() {
+        if (listenerEnabled()) return launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        activity.runOnUiThread {
+            AlertDialog.Builder(activity)
+                .setTitle(R.string.notif_consent_title)
+                .setMessage(R.string.notif_consent_body)
+                .setPositiveButton(R.string.screen_consent_agree) { _, _ -> launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                .setNegativeButton(R.string.consent_not_now, null)
+                .show()
+        }
+    }
 
     /**
      * Live chat reading. Google Play requires a prominent disclosure and an explicit "agree" BEFORE the Accessibility settings open,

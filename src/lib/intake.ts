@@ -33,6 +33,17 @@ export function tokenFromHeaders(headers: Pick<Headers, "get">): string | null {
   return looksLikeToken(candidate) ? candidate : null;
 }
 
+/**
+ * Optional "x-actionbrain-event-id": a phone's own id for one message, so a retry of the same message is answered "duplicate".
+ * 8-64 letters, digits, "-" or "_" (a UUID fits). Returns undefined when absent, null when present but malformed.
+ */
+export function eventIdFromHeaders(headers: Pick<Headers, "get">): string | null | undefined {
+  const raw = headers.get("x-actionbrain-event-id");
+  if (raw === null) return undefined;
+  const id = raw.trim();
+  return /^[A-Za-z0-9_-]{8,64}$/.test(id) ? id : null;
+}
+
 /** "Rajesh, Priya\nMom" -> ["Rajesh","Priya","Mom"]. Blank entries and repeats are dropped; the list is capped. */
 export function parseSenderList(text: string): string[] {
   const seen = new Set<string>();

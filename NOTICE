@@ -1,0 +1,15 @@
+ActionBrain
+Copyright 2026 The ActionBrain contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+It is open source and free to use.
+
+This product includes or downloads third-party software and data:
+
+- Inter font (src/app/fonts), SIL Open Font License 1.1. See src/app/fonts/Inter-OFL-LICENSE.txt.
+- onnxruntime-web (copied into public/ort at build time), MIT License, Copyright Microsoft Corporation.
+- @huggingface/transformers (transformers.js), Apache License 2.0, Copyright Hugging Face.
+- Whisper speech models (onnx-community/whisper-tiny and whisper-base), downloaded by the
+  user's browser at first use, not stored in this repository. Whisper is MIT licensed by OpenAI.
+- Other npm and Gradle dependencies are listed in package-lock.json and android/app/build.gradle.kts,
+  each under its own licence.

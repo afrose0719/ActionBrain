@@ -1,6 +1,6 @@
 # ActionBrain
 
-**Never lose a commitment again.** ActionBrain is an AI work memory. It captures what you say, receive and promise, finds the commitments and action items in it, and turns them into tasks you approve.
+**Never lose a commitment again.** ActionBrain is an AI work memory. It is **free and open source** ([Apache-2.0](LICENSE)). It captures what you say, receive and promise, finds the commitments and action items in it, and turns them into tasks you approve.
 
 ## What it does
 | Area | What you can do |
@@ -39,6 +39,7 @@ Next.js (App Router) · TypeScript · Tailwind CSS v4 · Supabase (Postgres, Aut
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | The **publishable** key. Never the secret / service_role key. |
 | `AI_KEY_ENCRYPTION_KEY` | yes | 32 random bytes, base64. Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. Losing it means users must re-enter their AI keys. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | optional | Google Calendar. See `docs/google-calendar-setup.md`. |
+| `NEXT_PUBLIC_PRIVACY_CONTACT` | before publishing | Email shown on `/privacy`, `/terms` and `/delete-account` for privacy and deletion requests. |
 
 ## Scripts
 | Command | Does |
@@ -66,6 +67,11 @@ See `extension/README.md`. Load the `extension` folder at `chrome://extensions` 
 - **Browser hardening:** a Content Security Policy, `X-Frame-Options`, `nosniff`, a strict referrer policy and HSTS (production). See `next.config.ts` for the trade-offs.
 
 ## Docs
+- `docs/brand.md`: the brand (ink and teal, dark mode, motion rules); live style guide at `/brand`
+- `docs/automation-roadmap.md`: the plan for full automation (15 ideas: what exists, what is new, phases 30-38, brand and UI system, platform limits)
+- `docs/zero-touch.md`: automatic background analysis and opt-in auto-create (Milestone 29): setup, security, keep-alive, what is untested
+- `docs/store-release.md`: Google Play, Chrome Web Store, Edge and Firefox checklist, Data safety draft, official sources
+- `docs/reviews/`: external review rounds (round-2.md lists every instruction with its status) (ChatGPT and Gemini) and what was done about each point
 - `docs/deploy.md`: deploying to Vercel, step by step
 - `docs/microsoft-teams-setup.md`: Microsoft Teams (Milestone 27): the sign-in, the admin approval link, registering the app, limits, what is untested
 - `docs/android-app.md`: the Android app (Milestone 23): install, first run, build, security, what is untested
@@ -76,3 +82,7 @@ See `extension/README.md`. Load the `extension` folder at `chrome://extensions` 
 - `docs/google-calendar-setup.md`: Google Calendar setup
 - `docs/integrations.md`: research on Gmail, WhatsApp, Calendar and Microsoft, with sources
 - `supabase/`: SQL for each milestone
+
+## Licence and contributing
+ActionBrain is free and open source under the [Apache License 2.0](LICENSE) (see also [NOTICE](NOTICE)). Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Report security problems privately: see [SECURITY.md](SECURITY.md).
+Public pages: `/privacy`, `/terms`, `/delete-account`.
