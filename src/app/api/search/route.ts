@@ -1,6 +1,7 @@
 import { getUserClient } from "@/lib/server-auth";
 import { decrypt } from "@/lib/crypto";
 import { askModel, isProvider } from "@/lib/ai/provider";
+import { LIMITS, readJsonBody } from "@/lib/body";
 
 const SYSTEM_PROMPT = `You answer questions about a user's own work data: tasks, commitments (promises) and inbox messages.
 Reply with JSON only: {"answer": string, "sources": [{"id": string}]}.
@@ -58,7 +59,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json().catch(() => null);
+  const read = await readJsonBody(request, LIMITS.small);
+  if (!read.ok) return read.response;
+  const body = read.value;
   const question = typeof body?.question === "string" ? body.question.trim().slice(0, 300) : "";
   if (!question) return Response.json({ error: "Type a question first." }, { status: 400 });
   const now = typeof body?.now === "string" ? body.now : new Date().toISOString();

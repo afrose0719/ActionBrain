@@ -2,6 +2,7 @@ import { getUserClient } from "@/lib/server-auth";
 import { decrypt } from "@/lib/crypto";
 import { askModel, isProvider } from "@/lib/ai/provider";
 import { validateCommitments, validateSuggestions } from "@/lib/ai/actions";
+import { LIMITS, readJsonBody } from "@/lib/body";
 
 const SYSTEM_PROMPT = `You read one message (an email, chat, meeting note, etc.) for a specific USER and extract two things.
 Reply with JSON only: {"suggestions":[...],"commitments":[...]}. No prose, no markdown.
@@ -46,7 +47,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json().catch(() => null);
+  const read = await readJsonBody(request, LIMITS.medium);
+  if (!read.ok) return read.response;
+  const body = read.value;
   const content = typeof body?.content === "string" ? body.content.trim().slice(0, 6000) : "";
   if (!content) return Response.json({ error: "There is no text to analyze." }, { status: 400 });
   const now = typeof body?.now === "string" ? body.now : new Date().toISOString();

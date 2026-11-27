@@ -2,6 +2,7 @@ import { getUserClient } from "@/lib/server-auth";
 import { decrypt } from "@/lib/crypto";
 import { askModel, isProvider } from "@/lib/ai/provider";
 import { validateAction, type TaskRef } from "@/lib/ai/actions";
+import { LIMITS, readJsonBody } from "@/lib/body";
 
 const SYSTEM_PROMPT = `You convert a user's natural-language command about their task list into ONE JSON action.
 Reply with JSON only. No prose, no markdown.
@@ -46,7 +47,9 @@ export async function POST(request: Request) {
   }
 
   // 2. Read and size-limit the input.
-  const body = await request.json().catch(() => null);
+  const read = await readJsonBody(request, LIMITS.medium);
+  if (!read.ok) return read.response;
+  const body = read.value;
   const command = typeof body?.command === "string" ? body.command.trim().slice(0, 500) : "";
   if (!command) return Response.json({ error: "Type a command first." }, { status: 400 });
 

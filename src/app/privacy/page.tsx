@@ -42,12 +42,22 @@ export default function PrivacyPage() {
       </section>
 
       <section>
-        <h2>Limited Use</h2>
+        <h2>Google APIs (Limited Use)</h2>
         <p>
-          ActionBrain&apos;s use and transfer of information received from Google APIs adheres to the{" "}
+          ActionBrain requests one Google scope: read-only Google Calendar, only if you connect it. ActionBrain&apos;s use and transfer of
+          information received from Google APIs adheres to the{" "}
           <a className="underline" href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
-          including the Limited Use requirements. Data from the browser extension is used only to provide its single purpose: sending the text
-          you select to your ActionBrain Inbox, and reminding you of your own tasks.
+          including the Limited Use requirements. Calendar events are read only to let you pick a meeting in ActionBrain; they are not stored (except the title and time of a
+          meeting you choose to save), sold, used for advertising, or used to train AI models.
+        </p>
+      </section>
+
+      <section>
+        <h2>Browser extension</h2>
+        <p>
+          The extension&apos;s single purpose is to send the text you select to your ActionBrain Inbox and to remind you of your own tasks.
+          It reads no page by itself. The data it handles is used only for that purpose, never sold, never used for advertising or
+          creditworthiness, and never transferred except to provide that purpose, as the Chrome Web Store User Data Policy requires.
         </p>
       </section>
 
@@ -67,7 +77,9 @@ export default function PrivacyPage() {
           <li>We keep your data until you delete it or delete your account.</li>
           <li><b>Export:</b> Settings → Your data → Export (JSON, or tasks as CSV).</li>
           <li><b>Delete:</b> Settings → Delete my account removes your account and all your data immediately. See <Link className="underline" href="/delete-account">Delete your account</Link>.</li>
-          <li><b>Stop capture:</b> switch sources off in Settings, pause from the Android Quick Settings tile, or revoke the Android permission at any time.</li>
+          <li><b>Stop capture:</b> switch sources off in Settings, pause from the Android Quick Settings tile, or revoke the Android permission at any time. Capture stops at once; messages already in your Inbox stay until you delete them.</li>
+          <li><b>Disconnect a phone:</b> Settings → Phone messages (WhatsApp) → Turn off (or New token) stops the old phone token immediately. The phone does not keep a backlog of unsent messages: it retries a message a few times in memory, then drops it.</li>
+          <li><b>Retry records:</b> to avoid saving a message twice, the server keeps the phone&apos;s message id (no message text) for 30 days.</li>
           <li>You can ask to access, correct or erase your data, and to withdraw consent, including under India&apos;s Digital Personal Data Protection Act, 2023.</li>
         </ul>
       </section>

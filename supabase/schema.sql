@@ -367,7 +367,19 @@ revoke all on function public._ingest_chat_message(uuid, text, text, text, text,
 drop function if exists public.ingest_message(text, text, text, text, boolean);
 
 -- Returns 'stored', 'duplicate', 'ignored', 'limit' or 'invalid'. Never reveals anything else.
-create or replace function public.ingest_message(p_token text, p_sender text, p_text text, p_group text default null, p_mine boolean default false, p_source text default 'whatsapp')
+-- Milestone 28: retry-safe intake with an optional event id. See supabase/milestone28-event-ids.sql.
+create table if not exists public.intake_events (
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  event_id    text not null,
+  received_at timestamptz not null default now(),
+  primary key (user_id, event_id)
+);
+alter table public.intake_events enable row level security;
+create index if not exists intake_events_received_at on public.intake_events (user_id, received_at);
+
+drop function if exists public.ingest_message(text, text, text, text, boolean, text);
+
+create or replace function public.ingest_message(p_token text, p_sender text, p_text text, p_group text default null, p_mine boolean default false, p_source text default 'whatsapp', p_event_id text default null)
 returns text
 language plpgsql
 security definer
@@ -375,8 +387,13 @@ set search_path = ''
 as $$
 declare
   s public.intake_settings%rowtype;
+  v_event text := nullif(btrim(coalesce(p_event_id, '')), '');
+  v_result text;
 begin
   if p_token is null or p_token !~ '^abi_[A-Za-z0-9_-]{43}$' then
+    return 'invalid';
+  end if;
+  if v_event is not null and v_event !~ '^[A-Za-z0-9_-]{8,64}$' then
     return 'invalid';
   end if;
 
@@ -385,12 +402,23 @@ begin
     return 'invalid';
   end if;
 
-  return public._ingest_chat_message(s.user_id, p_source, p_sender, p_text, p_group, p_mine, null, s.timezone, s.ignore_groups, s.allowed_senders);
+  if v_event is not null and exists (select 1 from public.intake_events where user_id = s.user_id and event_id = v_event) then
+    return 'duplicate';
+  end if;
+
+  v_result := public._ingest_chat_message(s.user_id, p_source, p_sender, p_text, p_group, p_mine, null, s.timezone, s.ignore_groups, s.allowed_senders);
+
+  if v_event is not null and v_result in ('stored', 'duplicate') then
+    insert into public.intake_events (user_id, event_id) values (s.user_id, v_event) on conflict do nothing;
+    delete from public.intake_events where user_id = s.user_id and received_at < now() - interval '30 days';
+  end if;
+  return v_result;
 end;
 $$;
 
-revoke all on function public.ingest_message(text, text, text, text, boolean, text) from public;
-grant execute on function public.ingest_message(text, text, text, text, boolean, text) to anon, authenticated;
+revoke all on function public.ingest_message(text, text, text, text, boolean, text, text) from public;
+grant execute on function public.ingest_message(text, text, text, text, boolean, text, text) to anon, authenticated;
+
 
 -- ---- door 2: a signed-in user's own request (the Microsoft Graph sync) ----
 -- It can only ever add to the CALLER's own inbox (auth.uid()), which Row Level Security already allows. Anonymous visitors cannot call it.

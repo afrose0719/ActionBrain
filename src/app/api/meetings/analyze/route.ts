@@ -2,6 +2,7 @@ import { getUserClient } from "@/lib/server-auth";
 import { decrypt } from "@/lib/crypto";
 import { askModel, isProvider } from "@/lib/ai/provider";
 import { validateCommitments, validateMeetingExtras, validateSuggestions } from "@/lib/ai/actions";
+import { LIMITS, readJsonBody } from "@/lib/body";
 
 const MAX_TRANSCRIPT = 30000; // characters, roughly 7,500 words
 
@@ -50,7 +51,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json().catch(() => null);
+  const read = await readJsonBody(request, LIMITS.large);
+  if (!read.ok) return read.response;
+  const body = read.value;
   const full = typeof body?.transcript === "string" ? body.transcript.trim() : "";
   if (!full) return Response.json({ error: "There is no transcript to analyze." }, { status: 400 });
   const transcript = full.slice(0, MAX_TRANSCRIPT);

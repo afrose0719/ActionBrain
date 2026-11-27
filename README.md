@@ -68,7 +68,7 @@ See `extension/README.md`. Load the `extension` folder at `chrome://extensions` 
 
 ## Docs
 - `docs/store-release.md`: Google Play, Chrome Web Store, Edge and Firefox checklist, Data safety draft, official sources
-- `docs/reviews/`: external review rounds (ChatGPT and Gemini) and what was done about each point
+- `docs/reviews/`: external review rounds (round-2.md lists every instruction with its status) (ChatGPT and Gemini) and what was done about each point
 - `docs/deploy.md`: deploying to Vercel, step by step
 - `docs/microsoft-teams-setup.md`: Microsoft Teams (Milestone 27): the sign-in, the admin approval link, registering the app, limits, what is untested
 - `docs/android-app.md`: the Android app (Milestone 23): install, first run, build, security, what is untested

@@ -22,11 +22,25 @@ Policies change: re-read each source in the console before you submit.
 |---|---|---|---|---|---|
 | Personal info → Email address | Yes | No | Required | Account management | Sign-in |
 | Messages → Other in-app messages (notification text from chat apps the user switches on) | Yes | No* | Optional | App functionality | *Sent to the user's own AI provider only when they press Analyze, at their request (user-initiated transfer) |
-| Audio → Voice or sound recordings | No (transcribed on the device; audio never leaves it) | — | — | — | Only the resulting text is stored, as "Other user-generated content" |
+| Audio → Voice or sound recordings | See the audio paths below | — | — | — | |
 | App activity → Other user-generated content (tasks, commitments, transcripts, captured text) | Yes | No* | Required | App functionality | *as above |
 | Location, contacts, financial, health, device IDs | No | — | — | — | |
 
 Security practices: data encrypted in transit (yes); users can request deletion (yes, in-app and `/delete-account`).
+
+### Audio, path by path (round-2 correction)
+Google counts data as "collected" when it leaves the device, even briefly. So the answer depends on the path, not on one blanket rule.
+
+| Path | Audio leaves the phone? | Declare |
+|---|---|---|
+| **Record** (meetings, calls) → Whisper in the app's WebView | No. Transcribed on the device. | The resulting **transcript** text, as user-generated content. Not "Voice or sound recordings". |
+| Shared or chosen **call-recording file** → Whisper | No. Read and transcribed on the device. | The transcript text, as above. |
+| **Mic button in the command box** (browser speech recognition) | **Possibly.** It uses the WebView/browser speech service, which may send audio to Google. In the Android WebView this API is usually unavailable, so the button may not appear at all. | If the Play build can use it, declare **Audio → Voice or sound recordings**, collected, App functionality, ephemeral. To be verified on a phone before submission. |
+
+## Before submission: verify on a real phone
+- The notification and microphone disclosures appear, "Not now" opens nothing and grants nothing.
+- Whether the command-box mic button works in the Android WebView (decides the last row above).
+- Record the screen of both disclosures for the Play Console permission declarations.
 
 ## Chrome Web Store, Edge Add-ons, Firefox
 See `extension/STORE_LISTING.md`, `extension/PERMISSIONS.md` and `extension/PRIVACY_DATA_MAP.md`.

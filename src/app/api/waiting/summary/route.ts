@@ -1,6 +1,7 @@
 import { getUserClient } from "@/lib/server-auth";
 import { decrypt } from "@/lib/crypto";
 import { askModel, isProvider } from "@/lib/ai/provider";
+import { LIMITS, readJsonBody } from "@/lib/body";
 
 const SYSTEM_PROMPT = `You help a busy person track what OTHER people owe them.
 You are given a list of open items ("waiting for") and a question. Answer the question using ONLY that list.
@@ -33,7 +34,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json().catch(() => null);
+  const read = await readJsonBody(request, LIMITS.medium);
+  if (!read.ok) return read.response;
+  const body = read.value;
   const question =
     typeof body?.question === "string" && body.question.trim()
       ? body.question.trim().slice(0, 300)
