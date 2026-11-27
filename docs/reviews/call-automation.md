@@ -41,3 +41,46 @@ Meta for Developers: WhatsApp Business Platform Calling API and Groups API; Twil
 calling bots (peer-to-peer and group calls), application-hosted media bots (Windows Server in Azure), meeting and ad hoc call transcripts
 and recordings (change notifications, VTT, tenant policy off by default); Android Developers: MediaStore and READ_MEDIA_AUDIO, call
 screening service, audio capture and sharing rules; Samsung India: Call Transcript Assist; Google Phone app Help: Call Notes.
+
+## Follow-up: a "listener number" that joins the call as a person (same day)
+**Owner's idea:** not a bot but a *person*: each user has a second WhatsApp number that ActionBrain controls. When a call comes in, the
+user adds that number to the call (it becomes a group call), and "ActionBrain Notes" listens, the way Fireflies joins a Zoom meeting.
+
+**Answers (ChatGPT and Gemini agree):**
+- **A Python program with a WhatsApp number = an unofficial client.** Correction to my first answer: some unofficial libraries
+  (for example Tryx) *can* join calls and receive audio. But every reverse-engineered client (Baileys, whatsapp-web.js, yowsup, Tryx)
+  breaks WhatsApp's Terms (no automated or unauthorised access, no reverse engineering), and those numbers get banned without warning.
+  **Do not build.**
+- **A second number in the official WhatsApp app is allowed as a normal action** when a human adds it and a human answers. But a
+  second Android phone can't capture the audio (Android blocks voice-call playback capture). And **auto-answering by clicking WhatsApp's
+  buttons with UI automation counts as automated access: never do it.** ChatGPT: ask Meta in writing before shipping it as a product
+  feature; the Terms neither allow nor forbid a note-taking account.
+- **A shared ActionBrain listener number for all customers:** ruled out. The owner would hear every customer's calls, and one account
+  can't be in many calls at once.
+- **What works without breaking anything: a desktop companion with no bot (Option 4).** WhatsApp Desktop on Windows and Mac (and,
+  since July 2026, WhatsApp Web) supports calls and group calls. ActionBrain records the computer's sound (Windows WASAPI loopback,
+  macOS ScreenCaptureKit) plus the microphone, transcribes on the computer and sends only tasks. Fireflies' own "no-bot desktop capture"
+  works the same way and lists WhatsApp. No WhatsApp automation at all.
+- **The catch (Gemini):** most of the owner's 10+ calls a day arrive on the phone, away from the laptop. Option 4 takes 3 to 5 actions
+  per call, and the listener number 4 to 6. That is more work than the Android paths, not less.
+- **Consent:** a visible participant is not enough on its own. Say it at the start ("I'm using ActionBrain to note action items from this
+  call, OK?"); stop if anyone objects; keep audio local and short-lived. India: recording your own call is treated differently from
+  interception, but the DPDP Act still asks for purpose, transparency and minimum data; California and some others need everyone's consent.
+
+| Approach | Actions per call | Works away from the PC | Risk | Decision |
+|---|---|---|---|---|
+| Samsung recording watcher (normal calls) | 0 | Yes | Low | Build now |
+| WhatsApp chat follow-through | 0 | Yes | Low | Build now |
+| One-tap recap after WhatsApp calls | 1 | Yes | Low | Done (0.9.0) |
+| Desktop companion, no second number | 1 to 5 | No | Medium (consent) | Optional, later; first a Windows audio test |
+| Second listener number, human answers | 4 to 6 | No | Medium to high | Experiment only, ask Meta first |
+| Unofficial library, auto-answer, shared number | 0 | n/a | Ban and privacy risk | Do not build |
+
+**ChatGPT's first step for the desktop path:** a local-only Windows test: WASAPI loopback plus a separate microphone stream, a visible
+"Capturing call audio" indicator, one 5-minute WhatsApp Desktop call with a consenting person. It passes only if both sides are clear,
+with no WhatsApp automation and no upload. Then add Whisper and task extraction.
+
+Sources given: WhatsApp Terms of Service and Help Center (adding people to a call; desktop calls on Windows and Mac; group calls up to 32);
+Meta newsroom (WhatsApp Web calling, July 2026); Microsoft Learn (WASAPI loopback recording); Apple Developer (ScreenCaptureKit); Recall.ai
+(loopback silence gaps); Fireflies guide (desktop no-bot capture); Supreme Court of India (privacy of phone conversations); DPDP Rules 2025
+(e-Gazette).
