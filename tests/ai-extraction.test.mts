@@ -8,10 +8,11 @@ import { LANGUAGE_AND_DATE_RULES } from "../src/lib/ai/prompts.ts";
 // They use fixed model replies (what a correct model returns for each scenario). They cannot measure how well a given model
 // understands Tamil or Hindi; that needs a live evaluation with a real key (planned, not in CI).
 
-test("tiers: high needs >= 0.85, evidence, and a clear date", () => {
+test("tiers: high needs >= 0.90, evidence, a clear date and (for promises) a known owner", () => {
   assert.equal(confidenceTier(0.95, { hasQuote: true, dateUnclear: false }), "high");
-  assert.equal(confidenceTier(0.85, { hasQuote: true, dateUnclear: false }), "high");
-  assert.equal(confidenceTier(0.84, { hasQuote: true, dateUnclear: false }), "review");
+  assert.equal(confidenceTier(0.9, { hasQuote: true, dateUnclear: false }), "high");
+  assert.equal(confidenceTier(0.89, { hasQuote: true, dateUnclear: false }), "review", "round 4: 0.85 is no longer enough");
+  assert.equal(confidenceTier(0.95, { hasQuote: true, dateUnclear: false, ownerKnown: false }), "review", "unknown owner: never high");
   assert.equal(confidenceTier(0.6, { hasQuote: true, dateUnclear: false }), "review");
   assert.equal(confidenceTier(0.59, { hasQuote: true, dateUnclear: false }), "clarify");
   assert.equal(confidenceTier(0.99, { hasQuote: false, dateUnclear: false }), "review", "no evidence quote: never high");
@@ -58,7 +59,7 @@ test("Scenario D: 'I will send you the API spec tomorrow' from Vignesh is a wait
 
 test("Tanglish: 'naalaiku report anupuren' keeps the exact quote and is marked ta-Latn", () => {
   const [c] = validateCommitments({
-    commitments: [{ direction: "mine", owner: "Afrose", description: "Send the report", due_date: "2026-11-28T09:00:00+05:30", confidence: 0.88, quote: "naalaiku report anupuren", language: "ta-Latn" }],
+    commitments: [{ direction: "mine", owner: "Afrose", description: "Send the report", due_date: "2026-11-28T09:00:00+05:30", confidence: 0.92, quote: "naalaiku report anupuren", language: "ta-Latn" }],
   });
   assert.equal(c.quote, "naalaiku report anupuren");
   assert.equal(c.language, "ta-Latn");
@@ -91,6 +92,9 @@ test("negative: ordinary chat (empty lists), injected fields, invented ids and b
   assert.equal(s.confidence, 1);
   assert.equal(s.tier, "review", "the model cannot set its own tier; no evidence means not high");
   assert.ok(!("user_id" in s) && !("id" in s) && !("status" in s));
+  // a promise with no owner named cannot be "high"
+  const [noOwner] = validateCommitments({ commitments: [{ direction: "theirs", description: "Send the spec", confidence: 0.97, quote: "will send the spec" }] });
+  assert.equal(noOwner.tier, "review");
   // wrong direction values are refused
   assert.deepEqual(validateCommitments({ commitments: [{ direction: "everyone", description: "x", confidence: 0.9 }] }), []);
   // date_unclear must be exactly true

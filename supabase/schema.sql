@@ -402,8 +402,12 @@ begin
     return 'invalid';
   end if;
 
-  if v_event is not null and exists (select 1 from public.intake_events where user_id = s.user_id and event_id = v_event) then
-    return 'duplicate';
+  if v_event is not null then
+    -- two requests with the same id at the same moment: the second waits here until the first has finished (review round 4)
+    perform pg_advisory_xact_lock(hashtextextended(s.user_id::text || ':' || v_event, 0));
+    if exists (select 1 from public.intake_events where user_id = s.user_id and event_id = v_event) then
+      return 'duplicate';
+    end if;
   end if;
 
   v_result := public._ingest_chat_message(s.user_id, p_source, p_sender, p_text, p_group, p_mine, null, s.timezone, s.ignore_groups, s.allowed_senders);

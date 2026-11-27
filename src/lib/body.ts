@@ -21,15 +21,22 @@ export async function readTextBody(request: Request, maxBytes: number): Promise<
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel().catch(() => {});
-      return { ok: false, response: tooLarge(maxBytes) };
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {});
+        return { ok: false, response: tooLarge(maxBytes) };
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } catch {
+    // the client went away or the stream broke: treat it as an unreadable request, never a server crash
+    return { ok: false, response: Response.json({ error: "Could not read the request." }, { status: 400 }) };
+  } finally {
+    reader.releaseLock();
   }
   const all = new Uint8Array(total);
   let offset = 0;

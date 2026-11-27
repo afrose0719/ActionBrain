@@ -97,13 +97,14 @@ export function cleanLanguage(v: unknown): Language | null {
 
 /**
  * How sure we are, as three bands that decide what the user is asked to do:
- *   high    (>= 0.85): ready to add;  review (0.60-0.84): check it;  clarify (< 0.60): ask before trusting it.
- * Never "high" without evidence (an exact quote) or with an unclear date: the user must see those.
+ *   high    (>= 0.90): ready to add;  review (0.60-0.89): check it;  clarify (< 0.60): ask before trusting it.
+ * Never "high" without evidence (an exact quote), with an unclear date, or (for a promise) without a known owner.
+ * 0.90 is a product threshold agreed in review round 4, not a measured accuracy: the model's confidence is not calibrated.
  */
 export type Tier = "high" | "review" | "clarify";
-export function confidenceTier(confidence: number, opts: { hasQuote: boolean; dateUnclear: boolean }): Tier {
-  const tier: Tier = confidence >= 0.85 ? "high" : confidence >= 0.6 ? "review" : "clarify";
-  return tier === "high" && (!opts.hasQuote || opts.dateUnclear) ? "review" : tier;
+export function confidenceTier(confidence: number, opts: { hasQuote: boolean; dateUnclear: boolean; ownerKnown?: boolean }): Tier {
+  const tier: Tier = confidence >= 0.9 ? "high" : confidence >= 0.6 ? "review" : "clarify";
+  return tier === "high" && (!opts.hasQuote || opts.dateUnclear || opts.ownerKnown === false) ? "review" : tier;
 }
 
 export type RawSuggestion = {
@@ -183,9 +184,10 @@ export function validateCommitments(raw: unknown): RawCommitment[] {
     const confidence = typeof r.confidence === "number" ? Math.min(1, Math.max(0, r.confidence)) : 0.5;
     const quote = short(r.quote, 300) ?? "";
     const date_unclear = r.date_unclear === true;
+    const owner_name = short(r.owner, 120);
     out.push({
       direction: r.direction,
-      owner_name: short(r.owner, 120),
+      owner_name,
       counterparty: short(r.counterparty, 120),
       description,
       due_date: due,
@@ -193,7 +195,7 @@ export function validateCommitments(raw: unknown): RawCommitment[] {
       quote,
       language: cleanLanguage(r.language),
       date_unclear,
-      tier: confidenceTier(confidence, { hasQuote: quote !== "", dateUnclear: date_unclear }),
+      tier: confidenceTier(confidence, { hasQuote: quote !== "", dateUnclear: date_unclear, ownerKnown: owner_name !== null }),
     });
   }
   return out;

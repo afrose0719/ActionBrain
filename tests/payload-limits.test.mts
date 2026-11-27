@@ -39,6 +39,17 @@ test("an endless stream is cut off once it passes the limit (it is never fully r
   assert.ok(pulled < 10, `read ${pulled} chunks`);
 });
 
+test("a stream that breaks mid-way is a 400, not a crash", async () => {
+  const broken = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array(10));
+      controller.error(new Error("client went away"));
+    },
+  });
+  const r = await readTextBody(post(broken), LIMITS.small);
+  assert.ok(!r.ok && r.response.status === 400);
+});
+
 test("multi-byte text (Tamil) is measured in bytes, not characters", async () => {
   const tamil = "நாளை அனுப்புகிறேன் ".repeat(400); // about 3 bytes per character
   assert.ok(tamil.length < 8_000 && new TextEncoder().encode(tamil).length > LIMITS.small);
@@ -82,6 +93,9 @@ test("Milestone 28: retry-safe intake is locked down and in schema.sql", () => {
   assert.ok(sql.includes("v_event !~ '^[A-Za-z0-9_-]{8,64}$'"));
   assert.ok(sql.includes("v_result in ('stored', 'duplicate')"), "a refused message is not remembered, so it can be retried");
   assert.ok(sql.includes("interval '30 days'"));
+  assert.ok(sql.includes("pg_advisory_xact_lock(hashtextextended(s.user_id::text || ':' || v_event, 0))"), "same id at the same moment: serialised (round 4)");
+  assert.ok(sql.indexOf("pg_advisory_xact_lock") < sql.indexOf("if exists (select 1 from public.intake_events"), "lock is taken before the duplicate check");
+  assert.ok(sql.includes("create index if not exists intake_events_received_at on public.intake_events (user_id, received_at)"), "cleanup uses an index");
   assert.ok(sql.includes("drop function if exists public.ingest_message(text, text, text, text, boolean, text);"), "no ambiguous overload");
   assert.ok(sql.includes("grant execute on function public.ingest_message(text, text, text, text, boolean, text, text) to anon, authenticated;"));
   const fn = (raw: string) => raw.slice(raw.indexOf("create or replace function public.ingest_message("), raw.indexOf("$$;", raw.indexOf("create or replace function public.ingest_message(")) + 3);

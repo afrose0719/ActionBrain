@@ -9,6 +9,7 @@
 --  * intake_events holds only (user, event id, time): no message text. Rows older than 30 days are removed as new ones arrive.
 --  * Row Level Security is on with NO policies: nobody can read or write it directly; only ingest_message (security definer) uses it.
 --  * An event is remembered only when the message was stored (or was already there), so a message refused by the daily limit can be retried.
+--  * Same id sent twice at the same moment: a transaction lock on (user, id) makes the second wait and then answer 'duplicate'.
 -- ---------------------------------------------------------------
 create table if not exists public.intake_events (
   user_id     uuid not null references auth.users(id) on delete cascade,
@@ -44,8 +45,12 @@ begin
     return 'invalid';
   end if;
 
-  if v_event is not null and exists (select 1 from public.intake_events where user_id = s.user_id and event_id = v_event) then
-    return 'duplicate';
+  if v_event is not null then
+    -- two requests with the same id at the same moment: the second waits here until the first has finished (review round 4)
+    perform pg_advisory_xact_lock(hashtextextended(s.user_id::text || ':' || v_event, 0));
+    if exists (select 1 from public.intake_events where user_id = s.user_id and event_id = v_event) then
+      return 'duplicate';
+    end if;
   end if;
 
   v_result := public._ingest_chat_message(s.user_id, p_source, p_sender, p_text, p_group, p_mine, null, s.timezone, s.ignore_groups, s.allowed_senders);
