@@ -212,7 +212,7 @@ test("the app sends to the address the website's route serves", () => {
 
 test("the app asks for the bare minimum of permissions", () => {
   const perms = [...manifest.matchAll(/<uses-permission android:name="([^"]+)"/g)].map((m) => m[1]).sort();
-  assert.deepEqual(perms, ["android.permission.INTERNET", "android.permission.RECORD_AUDIO"]);
+  assert.deepEqual(perms, ["android.permission.ACCESS_NETWORK_STATE", "android.permission.INTERNET", "android.permission.RECORD_AUDIO"]); // network state: normal permission, needed by network jobs (0.8.1)
   for (const forbidden of ["READ_CALL_LOG", "READ_PHONE_STATE", "READ_SMS", "RECEIVE_SMS", "READ_CONTACTS", "CAMERA", "ACCESS_FINE_LOCATION", "MANAGE_EXTERNAL_STORAGE"]) {
     assert.ok(!manifest.includes(forbidden), forbidden);
   }
@@ -365,9 +365,9 @@ test("the Quick Settings tile only changes the pause time, and is protected by t
   assert.ok(manifest.includes("android.service.quicksettings.action.QS_TILE"));
   assert.ok(tile.includes("pauseFor("));
   assert.ok(!tile.includes("setReading") && !tile.includes("setNotifications"));
-  // the tile is not a permission request: the manifest still lists only the two permissions
+  // the tile is not a permission request: the manifest lists only these
   const perms = [...manifest.matchAll(/<uses-permission android:name="([^"]+)"/g)].map((m) => m[1]).sort();
-  assert.deepEqual(perms, ["android.permission.INTERNET", "android.permission.RECORD_AUDIO"]);
+  assert.deepEqual(perms, ["android.permission.ACCESS_NETWORK_STATE", "android.permission.INTERNET", "android.permission.RECORD_AUDIO"]); // network state: normal permission, needed by network jobs (0.8.1)
 });
 
 test("the settings panel offers the controls only to an app that has them", () => {

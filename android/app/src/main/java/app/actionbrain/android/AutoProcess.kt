@@ -40,7 +40,7 @@ object AutoProcess {
     fun ensurePeriodic(context: Context) {
         val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
         if (scheduler.getPendingJob(JOB_PERIODIC) != null) return
-        scheduler.schedule(
+        safeSchedule(scheduler, 
             JobInfo.Builder(JOB_PERIODIC, ComponentName(context, AutoProcessJob::class.java))
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setPeriodic(PERIOD_MS)
@@ -53,7 +53,7 @@ object AutoProcess {
         context.applicationContext.getSharedPreferences("auto", Context.MODE_PRIVATE).edit().remove("offUntil").apply()
 
     internal fun scheduleSoon(context: Context, scheduler: JobScheduler) {
-        scheduler.schedule(
+        safeSchedule(scheduler, 
             JobInfo.Builder(JOB_SOON, ComponentName(context, AutoProcessJob::class.java))
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setMinimumLatency(DELAY_MS)
@@ -117,3 +117,12 @@ class AutoProcessJob : JobService() {
         }
     }
 }
+
+/**
+ * Schedules a background job, but never lets a refusal crash the app (0.8.1: Android 16 threw a SecurityException on open when a
+ * required permission was missing). A job that cannot be scheduled is retried by the next capture or app start.
+ */
+internal fun safeSchedule(scheduler: JobScheduler, job: JobInfo): Boolean =
+    runCatching { scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS }
+        .onFailure { android.util.Log.w("ActionBrain", "job not scheduled: ${it.javaClass.simpleName}") }
+        .getOrDefault(false)
