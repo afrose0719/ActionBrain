@@ -114,7 +114,7 @@ object Outbox {
     fun scheduleRetry(context: Context) {
         val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
         if (scheduler.getPendingJob(JOB_RETRY) != null) return
-        scheduler.schedule(
+        safeSchedule(scheduler, 
             JobInfo.Builder(JOB_RETRY, ComponentName(context, OutboxJob::class.java))
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setBackoffCriteria(30_000, JobInfo.BACKOFF_POLICY_EXPONENTIAL)

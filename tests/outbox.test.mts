@@ -56,3 +56,13 @@ test("Settings reads queued and dropped; older apps without them still work; wro
   assert.equal(parseAndroidStatus(JSON.stringify({ ...base, queued: "4" })), null);
   assert.equal(parseAndroidStatus(JSON.stringify({ ...base, dropped: -1 })), null);
 });
+
+test("0.8.1 crash fix: jobs that wait for a network have ACCESS_NETWORK_STATE, and scheduling can never crash the app", () => {
+  const manifest = readFileSync("android/app/src/main/AndroidManifest.xml", "utf8");
+  const usesNetworkJobs = ["Outbox.kt", "AutoProcess.kt"].some((f) => kt(f).includes("setRequiredNetworkType"));
+  if (usesNetworkJobs) assert.match(manifest, /android\.permission\.ACCESS_NETWORK_STATE/, "Android 16 refuses network jobs without it");
+  for (const f of ["Outbox.kt", "AutoProcess.kt"]) {
+    assert.doesNotMatch(kt(f).replace(/scheduler\.schedule\(job\)/, ""), /scheduler\.schedule\(/, `${f} must go through safeSchedule`);
+  }
+  assert.ok(kt("AutoProcess.kt").includes("runCatching { scheduler.schedule(job)"));
+});
