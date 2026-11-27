@@ -31,13 +31,18 @@ object OutboxPolicy {
 
     enum class Action { DELETE_SENT, DELETE_REFUSED, KEEP_AND_STOP, KEEP_AND_RETRY }
 
-    /** What to do with a queued message after one send attempt. */
+    /**
+     * What to do with a queued message after one send attempt (review round 8, RFC 9110 status meanings):
+     * 2xx (stored, duplicate, ignored) -> delete. No answer, 408 timeout, 429, 5xx -> keep and retry later.
+     * 401/403 (token or access problem) -> keep and pause until the phone is reconnected. Other 4xx (400, 413, 415, 422: the message
+     * itself is unacceptable) -> delete, counted as failed and shown in Settings, so one bad message never blocks the rest.
+     */
     fun decide(code: Int?): Action = when {
-        code == null -> Action.KEEP_AND_RETRY // no answer: network
+        code == null -> Action.KEEP_AND_RETRY
         code in 200..299 -> Action.DELETE_SENT
-        code == 401 -> Action.KEEP_AND_STOP // the token is not valid: keep messages until the phone is connected again
-        code == 429 || code >= 500 -> Action.KEEP_AND_RETRY
-        else -> Action.DELETE_REFUSED // 400, 413...: sending it again cannot help
+        code == 401 || code == 403 -> Action.KEEP_AND_STOP
+        code == 408 || code == 429 || code >= 500 -> Action.KEEP_AND_RETRY
+        else -> Action.DELETE_REFUSED
     }
 
     /** How many of the oldest rows must go before one more fits. */
@@ -119,21 +124,33 @@ object Outbox {
 
     private fun insert(context: Context, json: String) {
         OutboxDb(context).writableDatabase.use { db ->
-            val now = System.currentTimeMillis()
-            // remove what is too old, then make room
-            db.delete("outbox", "created_at < ?", arrayOf((now - OutboxPolicy.MAX_AGE_MS).toString())).let { if (it > 0) Stats(context).drop(it) }
-            val count = db.rawQuery("select count(*) from outbox", null).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
-            val extra = OutboxPolicy.overflow(count)
-            if (extra > 0) {
-                db.execSQL("delete from outbox where id in (select id from outbox order by id limit $extra)")
-                Stats(context).drop(extra)
+            db.beginTransaction() // prune + insert as one step: a crash never leaves half a change (review round 8)
+            try {
+                val now = System.currentTimeMillis()
+                // remove what is too old, then make room
+                db.delete("outbox", "created_at < ?", arrayOf((now - OutboxPolicy.MAX_AGE_MS).toString())).let { if (it > 0) Stats(context).drop(it) }
+                val count = db.rawQuery("select count(*) from outbox", null).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+                val extra = OutboxPolicy.overflow(count)
+                if (extra > 0) {
+                    db.execSQL("delete from outbox where id in (select id from outbox order by id limit $extra)")
+                    Stats(context).drop(extra)
+                }
+                db.insert("outbox", null, ContentValues().apply {
+                    put("event_id", OutboxPolicy.newEventId())
+                    put("payload", vault.encrypt(json))
+                    put("created_at", now)
+                })
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
             }
-            db.insert("outbox", null, ContentValues().apply {
-                put("event_id", OutboxPolicy.newEventId())
-                put("payload", vault.encrypt(json))
-                put("created_at", now)
-            })
         }
+    }
+
+    /** Opening the app or reconnecting the phone: send anything waiting now (Samsung battery saving can delay the retry job). */
+    fun flushSoon(context: Context) {
+        val app = context.applicationContext
+        executor.execute { if (count(app) > 0) drain(app) }
     }
 
     private fun oldest(context: Context): List<Row> =

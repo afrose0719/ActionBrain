@@ -27,6 +27,7 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
     fun saveIntake(address: String?, token: String?): Boolean {
         if (!Payload.isIntakeAddress(address, BuildConfig.APP_URL) || !Payload.looksLikeToken(token)) return false
         tokens.save(address!!, token!!)
+        Outbox.flushSoon(activity) // messages kept while the old token was refused (401) go out now
         return true
     }
 

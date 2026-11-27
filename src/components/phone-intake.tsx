@@ -159,7 +159,9 @@ export function PhoneIntake() {
   }
 
   async function turnOff() {
-    if (!confirm("Turn off phone message intake? The token stops working. Messages already in your Inbox stay.")) return;
+    const waiting = phone?.queued ?? 0;
+    const lost = waiting > 0 ? ` ${waiting} message(s) still waiting on this phone will be deleted.` : "";
+    if (!confirm(`Turn off phone message intake? The token stops working. Messages already in your Inbox stay.${lost}`)) return;
     setBusy(true);
     const { error } = await createClient().from("intake_settings").delete().not("user_id", "is", null);
     setBusy(false);

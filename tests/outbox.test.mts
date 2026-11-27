@@ -31,6 +31,9 @@ test("each retry carries the same event id, so the server stores the message onc
 
 test("deleted only after an answer; no network keeps it; bounded; disconnect clears it", () => {
   assert.ok(outbox.includes("code == null -> Action.KEEP_AND_RETRY"));
+  assert.ok(outbox.includes("code == 408 || code == 429 || code >= 500 -> Action.KEEP_AND_RETRY"), "408 is retried (round 8)");
+  assert.ok(outbox.includes("db.beginTransaction()") && outbox.includes("db.setTransactionSuccessful()"), "prune + insert atomic");
+  assert.ok(bridge.includes("Outbox.flushSoon(activity)") && kt("MainActivity.kt").includes("Outbox.flushSoon(this)"), "flush on reconnect and app open");
   assert.ok(outbox.includes("const val MAX_ROWS = 500") && outbox.includes("7L * 24 * 60 * 60 * 1000"));
   assert.ok(outbox.includes("Stats(context).drop("), "a dropped message is counted, never silent");
   assert.match(bridge, /fun clearIntake\(\) \{\s+tokens\.clear\(\)\s+Outbox\.clear\(activity\)/);

@@ -15,6 +15,9 @@ class OutboxPolicyTest {
         assertEquals(OutboxPolicy.Action.KEEP_AND_RETRY, OutboxPolicy.decide(502))
         assertEquals(OutboxPolicy.Action.KEEP_AND_RETRY, OutboxPolicy.decide(429))
         assertEquals(OutboxPolicy.Action.KEEP_AND_STOP, OutboxPolicy.decide(401)) // bad token: keep until reconnected
+        assertEquals(OutboxPolicy.Action.KEEP_AND_STOP, OutboxPolicy.decide(403)) // access problem: keep (round 8)
+        assertEquals(OutboxPolicy.Action.KEEP_AND_RETRY, OutboxPolicy.decide(408)) // timeout: retry, never delete (round 8)
+        assertEquals(OutboxPolicy.Action.DELETE_REFUSED, OutboxPolicy.decide(422))
         assertEquals(OutboxPolicy.Action.DELETE_REFUSED, OutboxPolicy.decide(400)) // retrying cannot help
         assertEquals(OutboxPolicy.Action.DELETE_REFUSED, OutboxPolicy.decide(413))
     }

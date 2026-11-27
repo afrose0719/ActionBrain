@@ -58,6 +58,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         web.onResume()
+        Outbox.flushSoon(this) // anything waiting goes out as soon as the app is opened
     }
 
     override fun onPause() {
