@@ -4,7 +4,6 @@ import android.content.Context
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.concurrent.Executors
 
 /** Counters shown in the website's Settings so you can see it working. Plain numbers and a short status, nothing private. */
 class Stats(context: Context) {
@@ -19,39 +18,28 @@ class Stats(context: Context) {
 
     @Synchronized
     fun fail(reason: String) = prefs.edit().putInt("failed", failed + 1).putLong("lastAt", System.currentTimeMillis()).putString("lastResult", reason).apply()
+
+    /** Messages the queue had to drop (full, older than 7 days, or unreadable). Shown in Settings so a loss is never silent. */
+    val dropped: Int get() = prefs.getInt("dropped", 0)
+
+    @Synchronized
+    fun drop(n: Int) = prefs.edit().putInt("dropped", dropped + n).apply()
 }
 
-/** Sends one message to ActionBrain, off the main thread, retrying a couple of times if the network or server hiccups. */
+/**
+ * Sends captured messages to ActionBrain. Since Milestone 30 every message goes through the encrypted offline queue (Outbox) first,
+ * so nothing is lost when there is no network; the queue calls post() and deletes a message only once the server has answered.
+ */
 object IntakeClient {
-    private val executor = Executors.newSingleThreadExecutor()
-    private val waitsMs = longArrayOf(0, 2_000, 10_000)
     private val status = Regex("\"status\"\\s*:\\s*\"([a-z]+)\"")
 
-    private sealed interface Outcome {
-        data class Done(val result: String) : Outcome
-        data class Rejected(val reason: String) : Outcome // retrying cannot help (bad token, bad request)
-        data class Retry(val reason: String) : Outcome
-    }
+    /** The server's answer: HTTP code (null = no answer, network) and a short status for Settings. */
+    data class Result(val code: Int?, val status: String)
 
-    fun send(context: Context, config: TokenStore.Config, json: String) {
-        val app = context.applicationContext
-        executor.execute {
-            val stats = Stats(app)
-            var last = "no answer"
-            for (wait in waitsMs) {
-                if (wait > 0) Thread.sleep(wait)
-                when (val outcome = post(config, json)) {
-                    is Outcome.Done -> return@execute stats.ok(outcome.result)
-                    is Outcome.Rejected -> return@execute stats.fail(outcome.reason)
-                    is Outcome.Retry -> last = outcome.reason
-                }
-            }
-            stats.fail(last)
-        }
-    }
+    fun send(context: Context, @Suppress("UNUSED_PARAMETER") config: TokenStore.Config, json: String) = Outbox.add(context, json)
 
-    private fun post(config: TokenStore.Config, json: String): Outcome {
-        if (!config.address.startsWith("https://")) return Outcome.Rejected("address is not https")
+    fun post(config: TokenStore.Config, json: String, eventId: String): Result {
+        if (!config.address.startsWith("https://")) return Result(400, "address is not https")
         val connection = URL(config.address).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = "POST"
@@ -60,17 +48,18 @@ object IntakeClient {
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             connection.setRequestProperty("Authorization", "Bearer ${config.token}")
+            connection.setRequestProperty("x-actionbrain-event-id", eventId) // the same id on every retry: stored once (Milestone 28)
             connection.outputStream.use { it.write(json.toByteArray(Charsets.UTF_8)) }
             val code = connection.responseCode
             val body = (if (code in 200..299) connection.inputStream else connection.errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
-            when {
-                code in 200..299 -> Outcome.Done(status.find(body)?.groupValues?.get(1) ?: "ok")
-                code == 401 -> Outcome.Rejected("token rejected: create a new one in Settings")
-                code == 429 || code >= 500 -> Outcome.Retry("server error $code")
-                else -> Outcome.Rejected("refused ($code)")
-            }
+            Result(code, when {
+                code in 200..299 -> status.find(body)?.groupValues?.get(1) ?: "ok"
+                code == 401 -> "token rejected: create a new one in Settings"
+                code == 429 || code >= 500 -> "server error $code: will retry"
+                else -> "refused ($code)"
+            })
         } catch (e: IOException) {
-            Outcome.Retry("network: ${e.javaClass.simpleName}")
+            Result(null, "no network: waiting to send")
         } finally {
             connection.disconnect()
         }

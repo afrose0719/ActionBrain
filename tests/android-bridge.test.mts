@@ -11,6 +11,7 @@ const fullBridge = () => ({
   saveIntake: () => true,
   clearIntake: () => {},
   autoSettingsChanged: () => {},
+  clearQueue: () => 0,
   takeSharedFile: () => "",
   openScreenReadingSettings: () => {},
   screenStructure: () => "",
@@ -67,6 +68,8 @@ test("a good status is read", () => {
     failed: 1,
     lastAt: 1790000000000,
     lastResult: "stored",
+    queued: 0, // an app older than 0.7.0 has no offline queue
+    dropped: 0,
     controls: null, // this status came from an app too old to have capture controls
   });
 });
@@ -194,7 +197,7 @@ test("the app and the website use the same token format", () => {
 
 test("every method the website calls exists in the app's bridge, and nothing extra is exposed", () => {
   const exposed = [...kotlinBridge.matchAll(/@JavascriptInterface\s+fun (\w+)/g)].map((m) => m[1]).sort();
-  assert.deepEqual(exposed, ["addQuickSettingsTile", "autoSettingsChanged", "clearIntake", "isApp", "notificationStructure", "openAppInfo", "openBatterySettings", "openNotificationAccess", "openScreenReadingSettings", "pauseCapture", "saveIntake", "screenStructure", "setAppEnabled", "setNotificationsEnabled", "setReadingMode", "showBubbleAgain", "status", "takeSharedFile"]);
+  assert.deepEqual(exposed, ["addQuickSettingsTile", "autoSettingsChanged", "clearIntake", "clearQueue", "isApp", "notificationStructure", "openAppInfo", "openBatterySettings", "openNotificationAccess", "openScreenReadingSettings", "pauseCapture", "saveIntake", "screenStructure", "setAppEnabled", "setNotificationsEnabled", "setReadingMode", "showBubbleAgain", "status", "takeSharedFile"]);
   const website = Object.keys(fullBridge()).sort();
   assert.deepEqual(exposed, website);
 });

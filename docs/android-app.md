@@ -167,3 +167,12 @@ These switches change only what ActionBrain does. Android's own permissions (not
 - **Battery behaviour** over hours (Samsung may stop background apps).
 - **Back button / gesture** and **keyboard and edge-to-edge layout** on a real screen.
 - **Screen readers** (TalkBack).
+
+## Offline queue (Milestone 30, app 0.7.0)
+Every captured message is first saved on the phone, encrypted (AES-256-GCM, key in the Android Keystore), then sent. It is deleted
+only when the server answers. With no network, Android's JobScheduler retries with backoff once a network is back, also after a
+restart (the notification listener restarts it). Each message keeps one event id, so a retry is stored once.
+- At most 500 messages for at most 7 days; anything dropped is counted and shown in Settings ("could not be kept").
+- Settings shows "Waiting to send: N" with **Clear waiting messages**. Disconnecting the phone deletes the queue.
+- A bad token (401) keeps the messages until the phone is connected again; a refused message (400) is dropped and counted as failed.
+- Not tested on a real phone yet: airplane mode, restart and battery saver need checking on the Samsung.

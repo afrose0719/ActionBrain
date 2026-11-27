@@ -63,7 +63,7 @@ then), and opening the app. No always-on server is needed, so it stays $0.
 ## 7. Phases (highest value for least complexity first)
 | Phase | What | Why now |
 |---|---|---|
-| **30** | Durable encrypted phone queue (SQLite + Keystore, no library) | ChatGPT: the blocker; nothing captured may be lost |
+| **30** ✅ | Durable encrypted phone queue (SQLite + Keystore, no library). **Done** (Android 0.7.0, see `docs/android-app.md`) | ChatGPT: the blocker; nothing captured may be lost |
 | **31** | Accuracy evaluation in shadow mode (`npm run eval:ai` with the owner's key; 25-30 multilingual cases; precision, missed items, owner, date, quote) | Gemini: first, before anyone turns auto-create on |
 | **32** | **Brand and UI system** (owner's requirement): see section 10 | Everything after it is built on the new look |
 | **33** | Personal / Work spaces + **Today** view + one "Do next" card + simpler mobile navigation (Today · Inbox · Waiting · Activity · Settings) | Most visible value; both reviewers' instruction 3 |

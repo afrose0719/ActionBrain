@@ -16,6 +16,11 @@ import android.service.notification.StatusBarNotification
 class WhatsAppListenerService : NotificationListenerService() {
     private val recent = RecentSet()
 
+    /** Android reconnects the listener after a reboot or an update: send anything still waiting in the offline queue. */
+    override fun onListenerConnected() {
+        Thread { if (Outbox.count(this) > 0) Outbox.scheduleRetry(this) }.start()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val app = ChatApps.forPackage(sbn.packageName) ?: return
         val policy = CaptureSettings(this).load()

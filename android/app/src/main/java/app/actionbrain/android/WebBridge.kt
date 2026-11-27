@@ -30,8 +30,20 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
         return true
     }
 
+    /** Disconnect: forget the token AND delete every message still waiting to be sent (as the privacy policy says). */
     @JavascriptInterface
-    fun clearIntake() = tokens.clear()
+    fun clearIntake() {
+        tokens.clear()
+        Outbox.clear(activity)
+    }
+
+    /** "Clear waiting messages": delete what has not been sent yet. Returns how many were deleted. */
+    @JavascriptInterface
+    fun clearQueue(): Int {
+        val n = Outbox.count(activity)
+        Outbox.clear(activity)
+        return n
+    }
 
     /** The zero-touch switches changed in Settings: forget a remembered "off" so the next message is processed. */
     @JavascriptInterface
@@ -57,7 +69,8 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
             ",\"bubbleHidden\":" + capture.bubbleHidden(System.currentTimeMillis()) +
             ",\"apps\":{" + ChatApps.all.joinToString(",") { "\"" + it.source + "\":" + capture.appActive(it.source) } + "}" +
             ",\"sent\":" + stats.sent + ",\"failed\":" + stats.failed + ",\"lastAt\":" + stats.lastAt +
-            ",\"lastResult\":" + Payload.quote(stats.lastResult) + "}"
+            ",\"lastResult\":" + Payload.quote(stats.lastResult) +
+            ",\"queued\":" + Outbox.count(activity) + ",\"dropped\":" + stats.dropped + "}"
     }
 
     /**

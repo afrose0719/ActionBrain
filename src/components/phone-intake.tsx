@@ -274,6 +274,31 @@ export function PhoneIntake() {
                         Sent {phone.sent} · failed {phone.failed}
                         {phone.lastAt ? <> · last {new Date(phone.lastAt).toLocaleString()} ({phone.lastResult})</> : null}
                       </li>
+                      {phone.queued > 0 && (
+                        <li className="flex flex-wrap items-center gap-2">
+                          <span>
+                            Waiting to send: <b>{phone.queued}</b>. Kept encrypted on the phone and sent as soon as there is a network.
+                          </span>
+                          {bridge?.clearQueue && (
+                            <button
+                              type="button"
+                              className="btn-secondary btn-sm"
+                              onClick={() => {
+                                if (!confirm(`Delete ${phone.queued} message(s) that have not been sent yet? This cannot be undone.`)) return;
+                                bridge.clearQueue?.();
+                                setPhone(parseAndroidStatus(bridge.status()));
+                              }}
+                            >
+                              Clear waiting messages
+                            </button>
+                          )}
+                        </li>
+                      )}
+                      {phone.dropped > 0 && (
+                        <li className="text-danger-600">
+                          {phone.dropped} message(s) could not be kept (the phone queue was full or they waited more than 7 days).
+                        </li>
+                      )}
                     </ul>
                     {phone.controls && (
                       <fieldset className="grid gap-3 rounded-md border border-line p-3">

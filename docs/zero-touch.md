@@ -26,6 +26,8 @@ Both switches are **off** by default (Settings → Automatic). Turning one on sh
 
 ## Set it up (once)
 1. **Supabase → SQL Editor:** run `supabase/milestone28-event-ids.sql` (if not done yet), then `supabase/milestone29-zero-touch.sql`.
+   *Status on the owner's project (27 Nov 2026): both applied and checked with a read-only query (worker schema with 6
+   functions, no access for anon or signed-in users, both switches off). Steps 2-5 are still to do.*
 2. **Create the worker login.** Make a password: `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
    Then run, each line on its own, with your password:
    ```sql
@@ -59,3 +61,4 @@ repository activity. It is a safeguard, not a guarantee: Supabase does not promi
 - **Accuracy is not measured.** 0.90 is a starting threshold agreed in review, not a proven accuracy. Use Undo, and tell us what it
   gets wrong.
 - **Backups:** the Supabase free plan has no automatic backups. Export your data from Settings regularly.
+- **Offline queue:** done in Milestone 30 (Android 0.7.0): captured messages wait on the phone, encrypted, until they are sent.

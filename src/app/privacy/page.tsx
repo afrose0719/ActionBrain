@@ -79,7 +79,7 @@ export default function PrivacyPage() {
           <li><b>Export:</b> Settings → Your data → Export (JSON, or tasks as CSV).</li>
           <li><b>Delete:</b> Settings → Delete my account removes your account and all your data immediately. See <Link className="underline" href="/delete-account">Delete your account</Link>.</li>
           <li><b>Stop capture:</b> switch sources off in Settings, pause from the Android Quick Settings tile, or revoke the Android permission at any time. Capture stops at once; messages already in your Inbox stay until you delete them.</li>
-          <li><b>Disconnect a phone:</b> Settings → Phone messages (WhatsApp) → Turn off (or New token) stops the old phone token immediately. The phone does not keep a backlog of unsent messages: it retries a message a few times in memory, then drops it.</li>
+          <li><b>Disconnect a phone:</b> Settings → Phone messages (WhatsApp) → Turn off (or New token) stops the old phone token immediately. Messages the phone could not send yet (no network) wait on the phone, encrypted with a key that never leaves it, for at most 7 days (at most 500); disconnecting the phone or &quot;Clear waiting messages&quot; deletes them.</li>
           <li><b>Retry records:</b> to avoid saving a message twice, the server keeps the phone&apos;s message id (no message text) for 30 days.</li>
           <li>You can ask to access, correct or erase your data, and to withdraw consent, including under India&apos;s Digital Personal Data Protection Act, 2023.</li>
         </ul>
