@@ -73,6 +73,12 @@ then), and opening the app. No always-on server is needed, so it stays $0.
 | **37** | Priority recalculation, deadline-risk warnings, rescheduling suggestions (never silently moves a deadline) | Needs calendar + effort data |
 | **38** | Task decomposition (only on request or for clearly large tasks, as suggestions) | Lowest value per effort |
 
+### Revised after review round 7 (see `docs/reviews/round-7.md`)
+30 ✅ queue → 31 accuracy evaluation → **32A** brand foundations (tokens, type, motion, accessibility rules) → 33 Personal/Work +
+Today + Do next → **32B** brand applied everywhere → **33R release gate (v1.0 on the stores)** → 34 engine + Automation Control
+Center + Activity + briefings → 35 → 36 → 37 (+ "What am I forgetting?") → 38. Phase 34 follows the round-7 data-model rules
+(typed actions, unique action keys, expiry, append-only activity log with Undo payload, separate permissions).
+
 ## 8. Acceptance tests (each phase adds its own; the zero-touch core)
 - Offline capture → phone restart → network back → stored once (event id), nothing lost.
 - "Tomorrow submit the RCA" → with auto-create on: one task, due tomorrow, evidence quote, in Activity, Undo works.
