@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FileAudio, Lock, Mic, Square, X } from "lucide-react";
-import { captureMicrophone } from "@/lib/recorder-core";
+import { FileAudio, Lock, Mic, Monitor, Square, X } from "lucide-react";
+import {
+  captureComputerAndMic,
+  captureMicrophone,
+  computerAudioAvailable,
+  computerAudioHelp,
+  NoComputerAudioError,
+} from "@/lib/recorder-core";
 import { WhisperClient } from "@/lib/whisper/client";
 import { LANGUAGES, MODELS, modelSize, type Device, type WhisperModel } from "@/lib/whisper/protocol";
 import { formatDuration, isSilent } from "@/lib/audio";
@@ -63,6 +69,14 @@ export function CallRecorder({
   const [device, setDevice] = useState<Device>(prefs.device);
   const [error, setError] = useState("");
   const [file, setFile] = useState<File | null>(initialFile);
+  // "computer": a WhatsApp Desktop/Web or Teams call on this laptop (its sound + the microphone). "mic": the room, e.g. a phone on speaker.
+  const [source, setSource] = useState<"mic" | "computer">("mic");
+  const [canUseComputer, setCanUseComputer] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setCanUseComputer(computerAudioAvailable(navigator)));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const fromComputer = source === "computer" && canUseComputer && !recapOf;
 
   const capture = useRef<Awaited<ReturnType<typeof captureMicrophone>> | null>(null);
   const client = useRef<Engine | null>(null);
@@ -124,9 +138,9 @@ export function CallRecorder({
     setPhase("starting");
     try {
       let lastShown = 0;
-      capture.current = await captureMicrophone({
+      const options = {
         maxSeconds: MAX_MINUTES * 60,
-        onLevel: (db) => {
+        onLevel: (db: number) => {
           const now = Date.now();
           if (now - lastShown > 100) {
             lastShown = now;
@@ -134,7 +148,10 @@ export function CallRecorder({
           }
         },
         onLimit: () => finishRef.current(),
-      });
+      };
+      capture.current = fromComputer
+        ? await captureComputerAndMic({ ...options, onEnded: () => finishRef.current() }) // "Stop sharing" in the browser = stop
+        : await captureMicrophone(options);
       startedAt.current = new Date();
       setElapsed(0);
       setPhase("recording");
@@ -142,9 +159,12 @@ export function CallRecorder({
     } catch (e) {
       setPhase("idle");
       const name = e instanceof DOMException ? e.name : "";
+      if (e instanceof NoComputerAudioError) return setError(computerAudioHelp(navigator.userAgent));
       setError(
         name === "NotAllowedError"
-          ? "Microphone access is blocked. Allow it with the icon in your browser's address bar, then try again."
+          ? fromComputer
+            ? "Sharing was cancelled, or the microphone is blocked. Press Start again and choose Share (allow the microphone if asked)."
+            : "Microphone access is blocked. Allow it with the icon in your browser's address bar, then try again."
           : name === "NotFoundError"
             ? "No microphone was found."
             : "Could not start recording. Check that no other app is using the microphone."
@@ -213,7 +233,11 @@ export function CallRecorder({
     }
     if (isSilent(samples)) {
       setPhase("idle");
-      return setError("No sound was picked up. Check your microphone, and put the call on speaker so it can be heard.");
+      return setError(
+        fromComputer
+          ? "No sound was picked up. Check that the call was playing on this computer and that \"Share system audio\" was ticked."
+          : "No sound was picked up. Check your microphone, and put the call on speaker so it can be heard."
+      );
     }
     await transcribe(samples, durationSec, startedAt.current);
   }
@@ -305,7 +329,41 @@ export function CallRecorder({
             </div>
           )}
 
-          <p className={`text-xs text-ink-muted ${recapOf ? "hidden" : ""}`}>
+          {canUseComputer && !recapOf && !file && (
+            <fieldset className="grid gap-2 sm:grid-cols-2">
+              <legend className="label">Where is the call?</legend>
+              {(
+                [
+                  ["computer", Monitor, "On this computer", "WhatsApp Desktop or Web, Teams, any call app. Records its sound and your microphone."],
+                  ["mic", Mic, "Phone on speaker, or in the room", "Only the microphone listens."],
+                ] as const
+              ).map(([value, Icon, title, note]) => (
+                <label
+                  key={value}
+                  className={`press flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 ${
+                    source === value ? "border-brand-600 bg-brand-50" : "border-line"
+                  }`}
+                >
+                  <input type="radio" name="rec-source" className="mt-1 accent-brand-600" checked={source === value} onChange={() => setSource(value)} />
+                  <Icon size={16} className="mt-0.5 shrink-0 text-brand-600" />
+                  <span>
+                    <span className="block font-medium">{title}</span>
+                    <span className="text-xs text-ink-muted">{note}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+
+          {fromComputer ? (
+            <p className="text-xs text-ink-muted">
+              Nothing joins the call and WhatsApp or Teams is not touched. After Start, your browser asks what to share: choose{" "}
+              <strong>Entire screen</strong> and tick <strong>Share system audio</strong> (Chrome or Edge). Only the sound is used. Headphones give
+              the clearest result. Stop with the button here or the browser&apos;s Stop sharing.
+            </p>
+          ) : null}
+
+          <p className={`text-xs text-ink-muted ${recapOf || fromComputer ? "hidden" : ""}`}>
             The microphone only hears what is in the room. For a phone call, <strong>turn on speaker</strong> so both sides are picked up. Recording
             stops by itself after {MAX_MINUTES} minutes.
           </p>
@@ -322,7 +380,11 @@ export function CallRecorder({
           <label className={`flex items-start gap-2 ${recapOf ? "hidden" : ""}`}>
             <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
             <span>
-              {file ? "Everyone on this call knew it was being recorded and agreed." : "Everyone in this conversation knows it is being recorded and agrees."}{" "}
+              {file
+                ? "Everyone on this call knew it was being recorded and agreed."
+                : fromComputer
+                  ? "I told everyone on the call that ActionBrain is taking notes (\"I'm using ActionBrain to note action items, OK?\"), and they agreed."
+                  : "Everyone in this conversation knows it is being recorded and agrees."}{" "}
               <span className="text-ink-muted">(Recording laws differ by country and state.)</span>
             </span>
           </label>
@@ -371,7 +433,7 @@ export function CallRecorder({
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger-600 opacity-60" />
               <span className="relative inline-flex h-3 w-3 rounded-full bg-danger-600" />
             </span>
-            <strong>Recording</strong>
+            <strong>{fromComputer ? "Recording this computer's call and your microphone" : "Recording"}</strong>
             <span className="tabular-nums text-ink-muted">{formatDuration(elapsed)}</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-canvas" aria-hidden="true">

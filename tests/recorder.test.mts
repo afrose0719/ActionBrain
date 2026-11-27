@@ -1,6 +1,13 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { captureMicrophone, startCapture } from "../src/lib/recorder-core.ts";
+import {
+  captureComputerAndMic,
+  captureMicrophone,
+  computerAudioAvailable,
+  computerAudioHelp,
+  NoComputerAudioError,
+  startCapture,
+} from "../src/lib/recorder-core.ts";
 
 // A fake browser audio system, so the recorder's own logic can be tested without a microphone.
 class FakeNode {
@@ -159,4 +166,107 @@ test("microphone: if starting fails, the microphone is released instead of being
   };
   await assert.rejects(captureMicrophone(), /worklet blocked/);
   assert.equal(mic.stopped.length, 1, "the mic track must be stopped");
+});
+
+// ---------------- a call on this computer (WhatsApp Desktop/Web, Teams): its sound + the microphone ----------------
+
+type Track = { kind: string; stop(): void; enabled: boolean; addEventListener(type: string, fn: () => void): void; end(): void };
+function track(kind: string, log: string[]): Track {
+  let onEnd: (() => void) | null = null;
+  return {
+    kind,
+    enabled: true,
+    stop: () => log.push("stop " + kind),
+    addEventListener: (type, fn) => {
+      if (type === "ended") onEnd = fn;
+    },
+    end: () => onEnd?.(),
+  };
+}
+
+function fakeComputer({ withSound = true, micFails = false } = {}) {
+  const log: string[] = [];
+  const screenTracks = [track("video", log), ...(withSound ? [track("audio", log)] : [])];
+  const micTracks = [track("mic", log)];
+  const asked: { display?: Record<string, unknown>; mic?: { audio: Record<string, unknown> } } = {};
+  g.MediaStream = class {
+    constructor(public tracks: Track[]) {}
+  };
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: {
+      mediaDevices: {
+        getDisplayMedia: async (c: Record<string, unknown>) => {
+          asked.display = c;
+          return {
+            getTracks: () => screenTracks,
+            getAudioTracks: () => screenTracks.filter((t) => t.kind === "audio"),
+            getVideoTracks: () => screenTracks.filter((t) => t.kind === "video"),
+          };
+        },
+        getUserMedia: async (c: { audio: Record<string, unknown> }) => {
+          asked.mic = c;
+          if (micFails) throw new Error("mic blocked");
+          return { getTracks: () => micTracks };
+        },
+      },
+    },
+  });
+  return { log, asked, screenTracks };
+}
+
+test("computer call: asks for the computer's sound (system audio) and mixes it with the microphone", async () => {
+  const pc = fakeComputer();
+  let sources = 0;
+  g.AudioContext = class extends FakeContext {
+    createMediaStreamSource() {
+      sources++;
+      return this.source;
+    }
+  };
+  await captureComputerAndMic();
+  assert.equal(pc.asked.display?.systemAudio, "include");
+  assert.equal((pc.asked.display?.audio as Record<string, unknown>).echoCancellation, false, "the other side must not be filtered out");
+  assert.equal(pc.asked.mic?.audio.echoCancellation, true, "the speakers leaking into the mic would only be an echo");
+  assert.equal(sources, 2, "call sound and microphone both feed the recording");
+  assert.deepEqual(pc.log, ["stop video"], "the picture is stopped at once; the sound keeps going");
+});
+
+test("computer call: no sound shared (box not ticked) -> a clear error, and the screen share is stopped", async () => {
+  const pc = fakeComputer({ withSound: false });
+  await assert.rejects(captureComputerAndMic(), NoComputerAudioError);
+  assert.deepEqual(pc.log, ["stop video"]);
+});
+
+test("computer call: if the microphone is refused, the screen share is stopped too", async () => {
+  const pc = fakeComputer({ micFails: true });
+  await assert.rejects(captureComputerAndMic(), /mic blocked/);
+  assert.ok(pc.log.includes("stop audio") && pc.log.includes("stop video"));
+});
+
+test("computer call: stopping releases everything; the browser's own Stop sharing ends the recording", async () => {
+  const pc = fakeComputer();
+  let ended = 0;
+  const cap = await captureComputerAndMic({ onEnded: () => ended++ });
+  pc.screenTracks[1].end();
+  assert.equal(ended, 1);
+  play(1);
+  await cap.stop();
+  assert.deepEqual([...new Set(pc.log)].sort(), ["stop audio", "stop mic", "stop video"]);
+});
+
+test("computer call is offered on desktop browsers only", () => {
+  const md = { getDisplayMedia: () => {} };
+  const win = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36";
+  assert.equal(computerAudioAvailable({ mediaDevices: md, userAgent: win }), true);
+  assert.equal(computerAudioAvailable({ mediaDevices: md, userAgent: "Mozilla/5.0 (Linux; Android 16) Chrome/140.0 Mobile Safari/537.36" }), false);
+  assert.equal(computerAudioAvailable({ mediaDevices: {}, userAgent: win }), false);
+  assert.equal(computerAudioAvailable(undefined), false);
+});
+
+test("the help text names the right fix for each browser", () => {
+  assert.match(computerAudioHelp("Mozilla/5.0 (Windows NT 10.0) Gecko/20100101 Firefox/140.0"), /Firefox cannot/);
+  assert.match(computerAudioHelp("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605 Version/18 Safari/605.1"), /Safari cannot/);
+  assert.match(computerAudioHelp("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 Chrome/140.0 Safari/537.36"), /macOS 14.2/);
+  assert.match(computerAudioHelp("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36 Edg/140.0"), /Share system audio/);
 });

@@ -84,3 +84,37 @@ Sources given: WhatsApp Terms of Service and Help Center (adding people to a cal
 Meta newsroom (WhatsApp Web calling, July 2026); Microsoft Learn (WASAPI loopback recording); Apple Developer (ScreenCaptureKit); Recall.ai
 (loopback silence gaps); Fireflies guide (desktop no-bot capture); Supreme Court of India (privacy of phone conversations); DPDP Rules 2025
 (e-Gazette).
+
+## Follow-up 2: mostly travelling, laptop only sometimes (same day)
+**Owner:** "Python was only an example, any technology is fine. I am mostly travelling, so the laptop is usually not with me. When I am at
+the laptop I want it to capture WhatsApp and Teams calls."
+
+**Laptop: built (Milestone 33).** The recorder on Meetings has "Where is the call? On this computer". The browser's own screen-share box
+with "Share system audio" gives the other people's voices (the operating system's loopback); the microphone gives yours; both are mixed
+and transcribed on the computer with the existing Whisper. Nothing joins the call; WhatsApp and Teams are not touched. Reviewer pitfalls
+handled: the video track is stopped at once (Gemini); no sound track (box not ticked) gives a clear error instead of a silent recording;
+the call sound has no echo cancellation or noise filtering, the microphone does (echo from speakers); the browser's "Stop sharing" ends
+the recording; Firefox and Safari get a "use Chrome or Edge" message; phones don't see the option. Still to check by hand: a real
+WhatsApp Desktop call (ChatGPT's pass test: 5 minutes, both sides clear); Windows "reduce other sounds" ducking; macOS 14.2+ in Chrome.
+ChatGPT would keep the two tracks separate for speaker labels later; the first version mixes them, because Whisper takes one track.
+
+**Travelling, phone only (both agree):**
+- **Hardware is the only way to get both sides of a WhatsApp call on the move, and it is Meta-compliant** (it never touches WhatsApp):
+  a vibration-conduction recorder stuck to the phone's back. ChatGPT's correction: PLAUD Note / Note Pro have a call mode;
+  **NotePin does not**; recording is started and stopped by hand on the device, and headphones can't be used. Test it on a real WhatsApp
+  call before recommending it. ActionBrain then imports the file (Android share sheet: already works; a watched folder: next).
+- **Cloud PC with WhatsApp Desktop linked:** do not build. Answering there needs remote desktop or UI automation (against the Terms),
+  linked devices drop after 30 days of inactivity, and it costs money per user.
+- **No hidden Android 16 or Samsung API** for WhatsApp call audio. Samsung's recorder covers normal calls only (and not Wi-Fi calling).
+- **Teams on the move: zero taps.** Delegated sign-in works (OnlineMeetingTranscript.Read.All for meetings, CallTranscripts.Read.All for
+  ad hoc calls), but these scopes need admin consent, only work/school accounts work, and the tenant must allow Graph access to
+  transcripts (otherwise 403 GraphAccessToTranscriptsDisabled: explain it in one line).
+
+**Ranked plan for someone on the move:** chat capture (built, 0 taps) → Samsung recording watcher + audio folder import (0 taps) →
+one-tap recap (built) → Teams transcripts (0 taps, needs admin) → hardware recorder (optional accessory) → laptop capture (built).
+**Next build step (both):** the Android audio import pipeline: a watched folder for Samsung recordings and recorder exports, deduplicated,
+transcribed on the phone, tasks extracted, raw audio deleted after the user's retention period.
+
+Sources given: MDN getDisplayMedia and systemAudio; Chrome system-audio sharing (Windows, macOS 14.2+); Plaud product pages (call mode,
+NotePin limits); WhatsApp Help (linked devices); Samsung India (call recording limits); Microsoft Learn (transcript APIs, delegated
+permissions, admin consent, Teams admin policy for Graph transcript access).
