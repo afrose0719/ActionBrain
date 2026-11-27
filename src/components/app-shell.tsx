@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Brain,
   CheckSquare,
   Clock,
   Handshake,
@@ -16,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { Wordmark } from "@/components/brand";
 
 type NavItem = { label: string; href: string; icon: LucideIcon; soon?: boolean };
 
@@ -49,11 +49,8 @@ export function AppShell({ email, children }: { email: string; children: React.R
         Skip to main content
       </a>
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-surface md:flex">
-        <div className="flex h-14 items-center gap-2 border-b border-line px-5">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-white">
-            <Brain size={16} />
-          </span>
-          <span className="text-base font-semibold">ActionBrain</span>
+        <div className="flex h-14 items-center border-b border-line px-5">
+          <Wordmark size={28} />
         </div>
 
         <nav className="flex-1 space-y-1 p-3" aria-label="Main">
@@ -74,11 +71,18 @@ export function AppShell({ email, children }: { email: string; children: React.R
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`${base} transition-colors ${
+                className={`${base} group relative transition-colors ${
                   active ? "bg-brand-50 text-brand-700" : "text-ink-muted hover:bg-canvas hover:text-ink"
                 }`}
               >
-                <Icon size={16} />
+                {/* the active page gets a teal bar that grows in; others nudge their icon on hover */}
+                <span
+                  aria-hidden="true"
+                  className={`absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r bg-brand-600 transition-transform duration-200 ${
+                    active ? "scale-y-100" : "scale-y-0"
+                  }`}
+                />
+                <Icon size={16} className="transition-transform duration-200 group-hover:translate-x-0.5" />
                 {label}
               </Link>
             );
@@ -88,7 +92,9 @@ export function AppShell({ email, children }: { email: string; children: React.R
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-line bg-surface px-6">
-          <span className="text-sm font-semibold md:hidden">ActionBrain</span>
+          <span className="md:hidden">
+            <Wordmark size={24} />
+          </span>
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden text-sm text-ink-muted sm:inline">{email}</span>
             <button onClick={logOut} className="btn-secondary btn-sm">

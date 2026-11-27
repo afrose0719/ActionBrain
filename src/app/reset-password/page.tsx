@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Brain } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { Logo } from "@/components/brand";
 
 // The link in the reset email brings the user here. Supabase signs them in "for recovery" automatically,
 // and the only thing that session may be used for here is choosing a new password.
@@ -48,9 +48,7 @@ export default function ResetPasswordPage() {
     <main className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-brand-600 text-white">
-            <Brain size={20} />
-          </span>
+          <Logo size={48} alive className="mb-4" />
           <h1>Choose a new password</h1>
         </div>
 

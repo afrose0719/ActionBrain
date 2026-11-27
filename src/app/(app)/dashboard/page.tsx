@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import type { Commitment, Suggestion, Task } from "@/lib/types";
+import { CountUp, ProgressRing, SkeletonRows } from "@/components/brand";
 
 type Attention = { inboxNew: number; inboxSuggestions: number; meetingsNew: number; meetingSuggestions: number; commitmentsToReview: number };
 
@@ -16,11 +17,13 @@ function greeting() {
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone?: string }) {
+function Stat({ label, value, tone, i }: { label: string; value: number; tone?: string; i: number }) {
   return (
-    <div className="card card-body">
+    <div className="card-interactive animate-rise card-body" style={{ "--i": i } as React.CSSProperties}>
       <p className="text-xs font-medium text-ink-muted">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${tone ?? ""}`}>{value}</p>
+      <p className={`mt-2 text-2xl font-semibold tabular-nums ${tone ?? ""}`}>
+        <CountUp value={value} />
+      </p>
     </div>
   );
 }
@@ -55,7 +58,21 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  if (tasks === null) return <p className="text-ink-muted">Loading...</p>;
+  if (tasks === null) {
+    return (
+      <div className="grid gap-6" role="status" aria-label="Loading your day">
+        <div className="skeleton h-8 w-48" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="skeleton h-20" />
+          ))}
+        </div>
+        <div className="card card-body">
+          <SkeletonRows rows={3} />
+        </div>
+      </div>
+    );
+  }
 
   const now = new Date();
   const endOfToday = new Date(now);
@@ -66,6 +83,10 @@ export default function DashboardPage() {
   const dueToday = open.filter((t) => t.due_date && new Date(t.due_date) >= now && new Date(t.due_date) <= endOfToday);
   const done = tasks.filter((t) => t.status === "done");
   const upcoming = [...overdue, ...dueToday].slice(0, 6);
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const doneToday = done.filter((t) => t.completed_at && new Date(t.completed_at) >= startOfToday).length;
+  const todayTotal = doneToday + dueToday.length + overdue.length;
 
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const attentionRows = attention
@@ -85,39 +106,42 @@ export default function DashboardPage() {
           <h1>{greeting()}</h1>
           <p className="page-subtitle">Here is what needs your attention.</p>
         </div>
-        <Link href="/tasks" className="btn-primary">
-          Manage tasks
-        </Link>
+        <div className="flex items-center gap-4">
+          {todayTotal > 0 && <ProgressRing done={doneToday} total={todayTotal} label="Done today" />}
+          <Link href="/tasks" className="btn-primary">
+            Manage tasks
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
-        <Stat label="Open tasks" value={open.length} />
-        <Stat label="Due today" value={dueToday.length} tone="text-warning-600" />
-        <Stat label="Overdue" value={overdue.length} tone="text-danger-600" />
-        <Stat label="My commitments" value={commitments.filter((c) => c.direction === "mine").length} />
-        <Stat label="Waiting for" value={commitments.filter((c) => c.direction === "theirs").length} />
-        <Stat label="Completed" value={done.length} tone="text-success-600" />
+        <Stat i={0} label="Open tasks" value={open.length} />
+        <Stat i={1} label="Due today" value={dueToday.length} tone="text-warning-600" />
+        <Stat i={2} label="Overdue" value={overdue.length} tone="text-danger-600" />
+        <Stat i={3} label="My commitments" value={commitments.filter((c) => c.direction === "mine").length} />
+        <Stat i={4} label="Waiting for" value={commitments.filter((c) => c.direction === "theirs").length} />
+        <Stat i={5} label="Completed" value={done.length} tone="text-success-600" />
       </div>
 
-      <section className="card mt-6">
+      <section className="card animate-rise mt-6" style={{ "--i": 6 } as React.CSSProperties}>
         <div className="border-b border-line px-5 py-4">
           <h2>Needs your attention</h2>
         </div>
         {attentionRows.length === 0 ? (
           <p className="card-body flex items-center gap-2 text-ink-muted">
-            <CheckCircle2 size={16} className="text-success-600" />
+            <CheckCircle2 size={18} className="animate-pop text-success-600" />
             You are all caught up. Nothing is waiting for your review.
           </p>
         ) : (
           <ul className="divide-y divide-line">
-            {attentionRows.map((r) => (
-              <li key={r.label}>
-                <Link href={r.href} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-canvas">
+            {attentionRows.map((r, i) => (
+              <li key={r.label} className="animate-rise" style={{ "--i": i + 7 } as React.CSSProperties}>
+                <Link href={r.href} className="group flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-canvas">
                   <span className="flex items-center gap-3">
                     <span className="badge-brand min-w-6 justify-center">{r.n}</span>
                     {r.label}
                   </span>
-                  <ArrowRight size={14} className="text-ink-subtle" />
+                  <ArrowRight size={14} className="text-ink-subtle transition-transform duration-200 group-hover:translate-x-1" />
                 </Link>
               </li>
             ))}
@@ -125,7 +149,7 @@ export default function DashboardPage() {
         )}
       </section>
 
-      <section className="card mt-6">
+      <section className="card animate-rise mt-6" style={{ "--i": 8 } as React.CSSProperties}>
         <div className="border-b border-line px-5 py-4">
           <h2>Today &amp; overdue</h2>
         </div>
@@ -133,8 +157,8 @@ export default function DashboardPage() {
           <p className="card-body text-ink-muted">Nothing due. Add tasks from the Tasks page.</p>
         ) : (
           <ul className="divide-y divide-line">
-            {upcoming.map((t) => (
-              <li key={t.id} className="flex items-center justify-between gap-4 px-5 py-3">
+            {upcoming.map((t, i) => (
+              <li key={t.id} className="animate-rise flex items-center justify-between gap-4 px-5 py-3" style={{ "--i": i + 9 } as React.CSSProperties}>
                 <span className="font-medium">{t.title}</span>
                 <span className="flex items-center gap-3">
                   <span className={`badge-${t.priority}`}>{t.priority}</span>

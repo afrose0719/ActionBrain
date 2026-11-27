@@ -14,6 +14,8 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
  * Everything ActionBrain added by itself in the last 7 days, with one-tap Undo (review round 5: mandatory safety net).
  * Undo deletes the task or promise only; the original message stays in the Inbox.
  */
+const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString();
+
 export function AutoAdded() {
   const [items, setItems] = useState<Added[]>([]);
   const [error, setError] = useState("");
@@ -58,7 +60,10 @@ export function AutoAdded() {
       <div className="card-body grid gap-2 text-sm">
         {summary && <p role="status" className="text-ink-muted">{summary}</p>}
         {items.map((i) => (
-          <div key={i.kind + i.id} className="flex items-start justify-between gap-3">
+          <div
+            key={i.kind + i.id}
+            className={`animate-rise flex items-start justify-between gap-3 rounded-md ${isToday(i.auto_created_at) ? "animate-glow" : ""}`}
+          >
             <div className="min-w-0">
               <p className="font-medium">
                 {i.kind === "task" ? "Task: " : "Promise: "}

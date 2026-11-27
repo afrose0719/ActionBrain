@@ -3,10 +3,17 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 // Reads the REAL stylesheet, so a future color change that breaks readability fails the build.
-const css = readFileSync("src/app/globals.css", "utf8");
-const tokens: Record<string, string> = Object.fromEntries(
-  [...css.matchAll(/--color-([a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]])
-);
+const css = readFileSync("src/app/globals.css", "utf8").replaceAll("\r\n", "\n");
+const colours = (block: string): Record<string, string> =>
+  Object.fromEntries([...block.matchAll(/--color-([a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]]));
+const blockAfter = (marker: string) => {
+  const start = css.indexOf("{", css.indexOf(marker)) + 1;
+  return css.slice(start, css.indexOf("}", start));
+};
+// Light = the @theme block. Dark = light overridden by the dark block (Phase 32A). Both themes are tested below.
+const tokens = colours(blockAfter("@theme"));
+const darkBlock = blockAfter(':root[data-theme="dark"]');
+const darkTokens = { ...tokens, ...colours(darkBlock) };
 
 function luminance(hex: string) {
   const [r, g, b] = [1, 3, 5]
@@ -37,11 +44,12 @@ const PAIRS: [string, string, number, string][] = [
   ["ink-subtle", "canvas", 4.5, "timestamps on tinted rows"],
   ["brand-600", "surface", 4.5, "links"],
   ["brand-700", "brand-50", 4.5, "brand badge, active navigation"],
-  ["surface", "brand-600", 4.5, "primary button label"],
-  ["surface", "brand-700", 4.5, "primary button on hover"],
+  ["on-brand", "brand-600", 4.5, "primary button label"],
+  ["on-brand", "brand-700", 4.5, "primary button on hover"],
+  ["brand-600", "canvas", 4.5, "links on the page"],
   ["danger-600", "surface", 4.5, "error text, delete buttons"],
   ["danger-600", "danger-50", 4.5, "error banner, high-priority badge"],
-  ["surface", "danger-600", 4.5, "delete-account button label"],
+  ["on-brand", "danger-600", 4.5, "delete-account button label"],
   ["warning-600", "warning-50", 4.5, "medium-priority badge, warnings"],
   ["warning-600", "surface", 4.5, "due-today figure"],
   ["success-600", "success-50", 4.5, "success notices"],
@@ -50,14 +58,41 @@ const PAIRS: [string, string, number, string][] = [
   ["line-strong", "canvas", 3, "form field borders on the page"],
 ];
 
-for (const [fg, bg, min, where] of PAIRS) {
-  test(`contrast: ${fg} on ${bg} is at least ${min}:1 (${where})`, () => {
-    assert.ok(tokens[fg], `token --color-${fg} not found in globals.css`);
-    assert.ok(tokens[bg], `token --color-${bg} not found in globals.css`);
-    const ratio = contrast(tokens[fg], tokens[bg]);
-    assert.ok(ratio >= min, `${tokens[fg]} on ${tokens[bg]} is only ${ratio.toFixed(2)}:1`);
-  });
+for (const [theme, set] of [["light", tokens], ["dark", darkTokens]] as const) {
+  for (const [fg, bg, min, where] of PAIRS) {
+    test(`contrast (${theme}): ${fg} on ${bg} is at least ${min}:1 (${where})`, () => {
+      assert.ok(set[fg], `token --color-${fg} not found in globals.css`);
+      assert.ok(set[bg], `token --color-${bg} not found in globals.css`);
+      const ratio = contrast(set[fg], set[bg]);
+      assert.ok(ratio >= min, `${set[fg]} on ${set[bg]} is only ${ratio.toFixed(2)}:1 in ${theme}`);
+    });
+  }
 }
+
+test("the system-dark block and the manual dark switch use exactly the same colours", () => {
+  const media = blockAfter(':root:not([data-theme="light"])');
+  assert.deepEqual(colours(media), colours(darkBlock));
+  assert.ok(Object.keys(colours(darkBlock)).length >= 18, "every colour has a dark value");
+});
+
+test("motion: three durations, and reduce-motion switches every animation and delay off", () => {
+  for (const t of ["--duration-fast: 140ms", "--duration-standard: 220ms", "--duration-gentle: 320ms"]) assert.ok(css.includes(t), t);
+  const reduce = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+  for (const rule of ["animation-duration: 0.01ms !important", "animation-delay: 0ms !important", "transition-duration: 0.01ms !important"]) {
+    assert.ok(reduce.includes(rule), rule);
+  }
+  // only transform and opacity are animated (smooth on phones, no layout jumps)
+  const keyframes = [...css.matchAll(/@keyframes [a-z-]+ \{([\s\S]*?)\n\}/g)];
+  assert.ok(keyframes.length >= 5);
+  for (const kf of keyframes) {
+    assert.doesNotMatch(kf[1], /\b(width|height|top|left|margin|padding):/, "keyframes must not animate layout");
+  }
+});
+
+test("no hard-coded white text: filled buttons use the on-brand token (dark mode needs dark text)", () => {
+  const files = ["src/app/page.tsx", "src/app/login/page.tsx", "src/components/app-shell.tsx", "src/components/brand.tsx"];
+  for (const f of files) assert.doesNotMatch(readFileSync(f, "utf8"), /text-white/, f);
+});
 
 test("form fields use the stronger border, not the decorative one", () => {
   assert.match(css, /\.input\s*\{[^}]*border-line-strong/);
