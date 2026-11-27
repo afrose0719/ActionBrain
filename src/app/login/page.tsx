@@ -132,6 +132,9 @@ export default function LoginPage() {
             Forgot password?
           </button>
         </form>
+        <p className="mt-4 text-center text-xs text-ink-muted">
+          Free and open source. <a className="underline" href="/privacy">Privacy</a> · <a className="underline" href="/terms">Terms</a>
+        </p>
       </div>
     </main>
   );

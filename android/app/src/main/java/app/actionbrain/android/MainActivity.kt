@@ -2,6 +2,7 @@ package app.actionbrain.android
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -152,9 +153,18 @@ class MainActivity : Activity() {
                     if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                         request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
                     } else {
+                        // prominent disclosure first (Google Play User Data policy); "Not now" never shows Android's prompt
                         pendingAudio?.deny()
                         pendingAudio = request
-                        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_AUDIO)
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle(R.string.mic_consent_title)
+                            .setMessage(R.string.mic_consent_body)
+                            .setPositiveButton(R.string.screen_consent_agree) { _, _ ->
+                                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_AUDIO)
+                            }
+                            .setNegativeButton(R.string.consent_not_now) { _, _ -> pendingAudio?.deny(); pendingAudio = null }
+                            .setOnCancelListener { pendingAudio?.deny(); pendingAudio = null }
+                            .show()
                     }
                 }
             }

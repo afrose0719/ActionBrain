@@ -118,6 +118,12 @@ export function AppShell({ email, children }: { email: string; children: React.R
         <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-5xl flex-1 p-4 outline-none sm:p-6 lg:p-8">
           {children}
         </main>
+        <footer className="mx-auto flex w-full max-w-5xl flex-wrap gap-4 px-4 pb-6 text-xs text-ink-muted sm:px-6 lg:px-8">
+          <span>ActionBrain is free and open source (Apache-2.0).</span>
+          <Link href="/privacy" className="underline">Privacy</Link>
+          <Link href="/terms" className="underline">Terms</Link>
+          <a href="https://github.com/afrose0719/ActionBrain" className="underline">Source code</a>
+        </footer>
       </div>
     </div>
   );

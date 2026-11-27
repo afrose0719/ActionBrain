@@ -10,8 +10,8 @@ android {
         applicationId = "app.actionbrain.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.5.2"
+        versionCode = 8
+        versionName = "0.5.3"
 
         // The one website this app is allowed to open (and the only one allowed to talk to the app's bridge).
         val appUrl = providers.gradleProperty("actionbrainUrl").getOrElse("https://action-brain-sigma.vercel.app").trimEnd('/')

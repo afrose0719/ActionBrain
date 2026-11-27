@@ -56,8 +56,22 @@ class WebBridge(private val activity: Activity, private val tokens: TokenStore) 
             ",\"lastResult\":" + Payload.quote(stats.lastResult) + "}"
     }
 
+    /**
+     * Notification access. Google Play's User Data policy needs a prominent disclosure, from the app itself, with an explicit
+     * "agree", BEFORE the system screen opens. "Not now" opens nothing. Already allowed: go straight to the screen (to turn it off).
+     */
     @JavascriptInterface
-    fun openNotificationAccess() = launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+    fun openNotificationAccess() {
+        if (listenerEnabled()) return launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        activity.runOnUiThread {
+            AlertDialog.Builder(activity)
+                .setTitle(R.string.notif_consent_title)
+                .setMessage(R.string.notif_consent_body)
+                .setPositiveButton(R.string.screen_consent_agree) { _, _ -> launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                .setNegativeButton(R.string.consent_not_now, null)
+                .show()
+        }
+    }
 
     /**
      * Live chat reading. Google Play requires a prominent disclosure and an explicit "agree" BEFORE the Accessibility settings open,
