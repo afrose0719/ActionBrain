@@ -34,6 +34,10 @@ export async function POST(request: Request) {
   const read = await readTextBody(request, 1024); // no body is needed; anything large is refused
   if (!read.ok) return read.response;
 
+  // production fails closed: without the CA certificate the server could not prove it is talking to Supabase (review round 6)
+  if (process.env.VERCEL_ENV === "production" && !process.env.WORKER_DATABASE_CA?.trim()) {
+    return Response.json({ status: "not_configured", missing: "WORKER_DATABASE_CA" }, { status: 503 });
+  }
   const db = workerPool();
   if (!db) return Response.json({ status: "not_configured" }, { status: 503 });
 

@@ -523,6 +523,17 @@ exception when others then
 end;
 $$;
 
+-- Is the quote really in the message? Case and spacing are ignored (models re-space text); anything else must match (review round 6).
+create or replace function worker._quoted(p_quote text, p_source text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select length(btrim(coalesce(p_quote, ''))) >= 3
+     and position(lower(regexp_replace(btrim(p_quote), '\s+', ' ', 'g')) in lower(regexp_replace(coalesce(p_source, ''), '\s+', ' ', 'g'))) > 0;
+$$;
+
 -- the user of a phone token, or null
 create or replace function worker._user_of(p_token text)
 returns uuid
@@ -648,7 +659,8 @@ begin
       continue when v_title = '';
       v_quote := left(btrim(coalesce(s ->> 'quote', '')), 300);
       v_conf  := case when jsonb_typeof(s -> 'confidence') = 'number' then least(1, greatest(0, (s ->> 'confidence')::real)) else 0.5 end;
-      v_sure  := v_conf >= 0.9 and v_quote <> '' and coalesce(s -> 'date_unclear', 'false'::jsonb) = 'false'::jsonb;
+      -- sure = high confidence AND the quote is really in the message AND the date is explicitly clear (round 6: missing = unclear)
+      v_sure  := v_conf >= 0.9 and worker._quoted(v_quote, v_item.content) and (s -> 'date_unclear') = 'false'::jsonb;
       v_state := 'pending';
       if v_auto and v_sure then
         v_key := p_item::text || ':t:' || md5(lower(v_title));
@@ -670,7 +682,7 @@ begin
         'priority', case when s ->> 'priority' in ('low', 'medium', 'high') then s ->> 'priority' else 'medium' end,
         'due_date', worker._ts(s ->> 'due_date'), 'related_person', left(nullif(btrim(coalesce(s ->> 'related_person', '')), ''), 120),
         'confidence', v_conf, 'quote', v_quote, 'language', left(s ->> 'language', 10),
-        'date_unclear', coalesce(s -> 'date_unclear', 'false'::jsonb) <> 'false'::jsonb,
+        'date_unclear', (s -> 'date_unclear') is distinct from 'false'::jsonb,
         'tier', case when v_sure then 'high' when v_conf >= 0.6 then 'review' else 'clarify' end));
     end loop;
   end if;
@@ -681,7 +693,7 @@ begin
       continue when v_desc = '' or coalesce(c ->> 'direction', '') not in ('mine', 'theirs');
       v_quote := left(btrim(coalesce(c ->> 'quote', '')), 300);
       v_conf  := case when jsonb_typeof(c -> 'confidence') = 'number' then least(1, greatest(0, (c ->> 'confidence')::real)) else 0.5 end;
-      v_sure  := v_conf >= 0.9 and v_quote <> '' and coalesce(c -> 'date_unclear', 'false'::jsonb) = 'false'::jsonb
+      v_sure  := v_conf >= 0.9 and worker._quoted(v_quote, v_item.content) and (c -> 'date_unclear') = 'false'::jsonb
                  and nullif(btrim(coalesce(c ->> 'owner_name', '')), '') is not null;
       v_key := p_item::text || ':c:' || md5(lower(v_desc));
       insert into public.commitments (user_id, direction, owner_name, counterparty, description, due_date, status, source_type, source_id,

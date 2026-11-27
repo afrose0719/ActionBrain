@@ -39,7 +39,7 @@ test("quota: reserved inside the claim, locked, never above 50 a day, nothing sp
 test("save: only the claimed item, within its lease; the database decides 'sure' itself", () => {
   const save = fn("save_auto_result");
   assert.ok(save.includes("v_item.auto_claim is distinct from p_claim") && save.includes("auto_lease_until < now()"));
-  assert.ok(save.includes("v_conf >= 0.9 and v_quote <> '' and coalesce(s -> 'date_unclear', 'false'::jsonb) = 'false'::jsonb"), "anything but an explicit false counts as unclear");
+  assert.ok(save.includes("v_conf >= 0.9 and worker._quoted(v_quote, v_item.content) and (s -> 'date_unclear') = 'false'::jsonb"), "quote must be in the message; only an explicit false is a clear date");
   assert.ok(save.includes("nullif(btrim(coalesce(c ->> 'owner_name', '')), '') is not null"), "promises need a known owner");
   assert.ok(!save.includes("->> 'tier'"), "a tier sent by the caller is never read");
   assert.ok(save.includes("on conflict (user_id, auto_key) where auto_key is not null do nothing"), "no duplicate tasks");
