@@ -39,6 +39,8 @@ export type AndroidBridge = {
   autoSettingsChanged?(): void;
   /** Delete messages still waiting in the phone's offline queue; returns how many (app 0.7.0+). */
   clearQueue?(): number;
+  /** Explain, then open Android's default-assistant screen, so a long-press captures the open chat (app 0.8.0+, Play-safe). */
+  openAssistantSettings?(): void;
 };
 
 export type ReadingMode = "off" | "auto" | "tap";
@@ -76,6 +78,8 @@ export type AndroidStatus = {
   queued: number;
   /** Messages the phone had to drop (queue full, older than 7 days, unreadable). Never silent. */
   dropped: number;
+  /** ActionBrain is the default digital assistant (long-press to capture). false for apps older than 0.8.0. */
+  assistant: boolean;
   controls: CaptureControls | null;
 };
 
@@ -116,9 +120,11 @@ export function parseAndroidStatus(json: unknown): AndroidStatus | null {
   const queued = d.queued === undefined ? 0 : count(d.queued);
   const dropped = d.dropped === undefined ? 0 : count(d.dropped);
   if (queued === null || dropped === null) return null;
+  const assistant = optional(d.assistant);
+  if (assistant === null) return null;
   const controls = parseControls(d);
   if (controls === undefined) return null;
-  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, screenAvailable, screenOn, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120), queued, dropped, controls };
+  return { version: d.version.slice(0, 20), configured: d.configured, listening: d.listening, screenAvailable, screenOn, sent, failed, lastAt, lastResult: d.lastResult.slice(0, 120), queued, dropped, assistant, controls };
 }
 
 export type SharedFile = { ok: true; name: string; text: string } | { ok: false; error: string };

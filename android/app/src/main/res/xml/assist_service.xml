@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Milestone 31: lets ActionBrain be chosen as the default digital assistant. It reads a screen only when the user long-presses. -->
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="app.actionbrain.android.AssistSessionService"
+    android:recognitionService="app.actionbrain.android.AssistRecognitionService"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="false"
+    android:supportsLocalInteraction="false" />

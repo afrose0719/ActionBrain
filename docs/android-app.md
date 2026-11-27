@@ -176,3 +176,18 @@ restart (the notification listener restarts it). Each message keeps one event id
 - Settings shows "Waiting to send: N" with **Clear waiting messages**. Disconnecting the phone deletes the queue.
 - A bad token (401) keeps the messages until the phone is connected again; a refused message (400) is dropped and counted as failed.
 - Not tested on a real phone yet: airplane mode, restart and battery saver need checking on the Samsung.
+
+## Tap to capture with the assistant (Milestone 31, app 0.8.0, works in the Google Play build)
+Make ActionBrain your phone's **default digital assistant** (ActionBrain Settings → Phone messages → **Set up tap to capture**, or
+Android Settings → Apps → Default apps → Digital assistant app). Then, in any WhatsApp or Teams chat, **long-press the power button**
+(or home on older phones). ActionBrain shows "5 messages from Priya (WhatsApp)"; tap **Send to ActionBrain** or Cancel.
+- Uses Android's Assist API (what ChatGPT and Gemini use as assistants), **not** an Accessibility service: Android hands over that one
+  screen only when you long-press. Nothing in the background, never from the lock screen, never the box you type in.
+- The same parser as live chat reading decides what is a message; the same encrypted queue sends it.
+- It replaces your current assistant for the long-press; switch back any time in the same Android setting.
+- Samsung: the side key may be set to Bixby. Settings → Advanced features → Side button → Press and hold → **Digital assistant**.
+- Not tested on a real phone yet.
+
+### "full" and "play" are the same app
+Both builds have the same package name, so installing one **replaces** the other (your connection stays). Install **full** on your
+own phone (it adds live chat reading); **play** is what goes to Google Play.

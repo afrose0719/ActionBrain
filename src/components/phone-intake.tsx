@@ -296,6 +296,19 @@ export function PhoneIntake() {
                           )}
                         </li>
                       )}
+                      {bridge?.openAssistantSettings && (
+                        <li className="rounded-md border border-line p-3">
+                          <p className="font-medium">Tap to capture (works in every version, including Google Play)</p>
+                          <p className="text-ink-muted">
+                            {phone.assistant
+                              ? "ActionBrain is your assistant. In any WhatsApp or Teams chat, long-press the power or home button, check what it found, and tap Send."
+                              : "Make ActionBrain your phone's assistant. Then a long-press of the power or home button in a chat captures that chat, only when you ask."}
+                          </p>
+                          <button type="button" className="btn-secondary btn-sm mt-2" onClick={() => bridge.openAssistantSettings?.()}>
+                            {phone.assistant ? "Assistant settings" : "Set up tap to capture"}
+                          </button>
+                        </li>
+                      )}
                       {phone.dropped > 0 && (
                         <li className="text-danger-600">
                           {phone.dropped} message(s) could not be kept (the phone queue was full or they waited more than 7 days).
