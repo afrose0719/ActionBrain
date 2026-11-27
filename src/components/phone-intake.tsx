@@ -309,6 +309,30 @@ export function PhoneIntake() {
                           </button>
                         </li>
                       )}
+                      {bridge?.setCallRecap && (
+                        <li className="rounded-md border border-line p-3">
+                          <label className="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              className="mt-0.5 h-4 w-4 accent-brand-600"
+                              aria-label="After WhatsApp and Teams calls, ask me for a quick voice recap"
+                              checked={phone.callRecap}
+                              onChange={(e) => {
+                                bridge.setCallRecap?.(e.target.checked);
+                                setTimeout(() => setPhone(parseAndroidStatus(bridge.status())), 400);
+                              }}
+                            />
+                            <span>
+                              <span className="block font-medium">After WhatsApp and Teams calls, ask me for a quick voice recap</span>
+                              <span className="text-ink-muted">
+                                Android does not let apps record these calls. Instead, when a call you answered ends, tap the notification and say
+                                in a few seconds what was agreed.
+                                {phone.callRecap && !phone.notificationsAllowed && " Notifications for ActionBrain are off in Android, so the recap cannot appear."}
+                              </span>
+                            </span>
+                          </label>
+                        </li>
+                      )}
                       {phone.dropped > 0 && (
                         <li className="text-danger-600">
                           {phone.dropped} message(s) could not be kept (the phone queue was full or they waited more than 7 days).

@@ -44,14 +44,17 @@ export function CallRecorder({
   onTranscript,
   onClose,
   initialFile = null,
+  recapOf = null,
 }: {
   onTranscript: (result: RecordingResult) => void | Promise<void>;
   onClose: () => void;
+  /** After-call recap (Milestone 32): the call it is about. Only the owner speaks, so no consent checkbox is needed. */
+  recapOf?: { name: string; via: string; mins: number } | null;
   /** A call recording that arrived from the Android share sheet. It is transcribed once the person confirms they may use it. */
   initialFile?: File | null;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
-  const [consent, setConsent] = useState(false);
+  const [consent, setConsent] = useState(Boolean(recapOf));
   const [prefs, setPrefs] = useState<Prefs>(loadPrefs);
   const [elapsed, setElapsed] = useState(0);
   const [level, setLevel] = useState(-100);
@@ -304,7 +307,16 @@ export function CallRecorder({
             </p>
           )}
 
-          <label className="flex items-start gap-2">
+          {recapOf && (
+            <p className="animate-rise rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-brand-700">
+              <strong>
+                Recap your {recapOf.via} call with {recapOf.name} ({recapOf.mins} min).
+              </strong>{" "}
+              Press Start and say in a few seconds what was agreed: who does what, by when. Only your own voice is recorded.
+            </p>
+          )}
+
+          <label className={`flex items-start gap-2 ${recapOf ? "hidden" : ""}`}>
             <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
             <span>
               {file ? "Everyone on this call knew it was being recorded and agreed." : "Everyone in this conversation knows it is being recorded and agrees."}{" "}
