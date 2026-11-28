@@ -25,6 +25,7 @@ test("reads Meet, Teams and Zoom links; refuses anything else", () => {
 
 test("the bot request: visible name, passcode separate, classic Teams link whole, language only when chosen", () => {
   assert.deepEqual(botRequest(parseMeetingLink("https://teams.microsoft.com/meet/397421056486982?p=X8")!), {
+    recording_enabled: false,
     bot_name: "ActionBrain Notetaker",
     platform: "teams",
     native_meeting_id: "397421056486982",

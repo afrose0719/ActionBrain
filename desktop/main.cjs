@@ -19,6 +19,8 @@ const {
   Menu,
   Notification,
   Tray,
+  powerMonitor,
+  screen,
   desktopCapturer,
   dialog,
   ipcMain,
@@ -118,7 +120,7 @@ function showMain(pathname = "/meetings") {
 
 // ---------------- one recording per call ----------------
 
-/** @type {Map<number, {win: BrowserWindow, app: string, state: string, timer: NodeJS.Timeout | null}>} */
+/** @type {Map<number, {win: BrowserWindow, app: string, state: string, timer: NodeJS.Timeout | null, startedAt: number}>} */
 const recordings = new Map();
 let current = null; // the recording of the call that is going on now (its webContents id), or null
 let skipped = false; // the person chose "skip this call"
@@ -128,7 +130,7 @@ function startRecording(appId) {
   const win = new BrowserWindow({ show: false, width: 900, height: 700, icon: iconPath(), webPreferences: webPreferences() });
   lockToSite(win);
   const id = win.webContents.id;
-  const rec = { win, app: appId, state: "starting", timer: null };
+  const rec = { win, app: appId, state: "starting", timer: null, startedAt: Date.now() };
   recordings.set(id, rec);
   current = id;
   rec.timer = setTimeout(() => {
@@ -140,16 +142,77 @@ function startRecording(appId) {
   win.loadURL(APP_URL + "/meetings?desktop=call&via=" + encodeURIComponent(label));
 
   notify(
-    `Taking notes on your ${label} call`,
+    `A ${label} call seems to have started: taking notes`,
     "Tell the other people that ActionBrain is taking notes. Click here to skip this call.",
-    () => {
-      skipped = true;
-      send(id, "call-cancel");
-      closeRecording(id);
-      updateTray();
-    }
+    () => skipCurrent()
   );
   updateTray();
+}
+
+/** "Stop": finish now and keep the notes taken so far. */
+function stopCurrent() {
+  if (current === null) return;
+  const id = current;
+  current = null;
+  send(id, "call-ended");
+  updateTray();
+}
+
+/** "Skip this call": throw the recording away. */
+function skipCurrent() {
+  if (current === null) return;
+  const id = current;
+  const rec = recordings.get(id);
+  skipped = true;
+  send(id, "call-cancel");
+  if (rec) remember(rec, "Skipped, nothing kept");
+  closeRecording(id);
+}
+
+// ---------------- the visible "taking notes" bar (round 9: recording must never be hidden) ----------------
+
+let indicator = null;
+function indicatorHtml(label) {
+  const safe = String(label).replace(/[<>&"]/g, "");
+  return `<!doctype html><meta charset="utf-8"><style>
+    body{margin:0;font:13px system-ui,sans-serif;background:#0f1d1c;color:#fff;display:flex;align-items:center;gap:8px;padding:8px 10px;
+      border-radius:10px;-webkit-app-region:drag;user-select:none;height:100vh;box-sizing:border-box}
+    .dot{width:10px;height:10px;border-radius:50%;background:#dc2626;animation:p 1.4s infinite}
+    @keyframes p{50%{opacity:.35}} span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    button{-webkit-app-region:no-drag;border:0;border-radius:6px;padding:4px 8px;font:inherit;cursor:pointer}
+    .stop{background:#fff;color:#0f1d1c}.skip{background:transparent;color:#cbd5e1}
+    </style><div class="dot"></div><span>Taking notes: ${safe} call</span>
+    <button class="stop" onclick="location.hash='stop'">Stop</button><button class="skip" onclick="location.hash='skip'">Skip</button>`;
+}
+function showIndicator(label) {
+  if (indicator && !indicator.isDestroyed()) return;
+  const area = screen.getPrimaryDisplay().workArea;
+  indicator = new BrowserWindow({
+    width: 330, height: 44, x: area.x + area.width - 346, y: area.y + area.height - 60,
+    frame: false, resizable: false, alwaysOnTop: true, skipTaskbar: true, focusable: false, show: false,
+    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+  });
+  indicator.setAlwaysOnTop(true, "screen-saver");
+  indicator.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  indicator.webContents.on("will-navigate", (e) => e.preventDefault());
+  indicator.webContents.on("did-navigate-in-page", (_e, url) => {
+    if (url.endsWith("#stop")) stopCurrent();
+    if (url.endsWith("#skip")) skipCurrent();
+  });
+  indicator.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(indicatorHtml(label)));
+  indicator.once("ready-to-show", () => indicator && !indicator.isDestroyed() && indicator.showInactive());
+}
+function hideIndicator() {
+  if (indicator && !indicator.isDestroyed()) indicator.destroy();
+  indicator = null;
+}
+
+// ---------------- recent calls (kept on this computer: app, time, length, outcome; never content) ----------------
+
+function remember(rec, outcome) {
+  const mins = Math.max(0, Math.round((Date.now() - rec.startedAt) / 60000));
+  settings.history = [{ app: calls.labelOf(rec.app), at: rec.startedAt, mins, outcome }, ...(settings.history || [])].slice(0, 20);
+  saveSettings();
 }
 
 function send(id, channel) {
@@ -166,6 +229,63 @@ function closeRecording(id) {
   if (!rec.win.isDestroyed()) rec.win.destroy();
   updateTray();
 }
+
+// The notetaker bot (Vexa) straight from this computer: the transcript never passes through ActionBrain's server, and a Vexa
+// running on this same computer (http://localhost) works too. Only the ActionBrain page may ask, and only these four actions.
+const VEXA_ACTIONS = {
+  send: () => ["POST", "/bots"],
+  status: () => ["GET", "/bots/status"],
+  transcript: (m) => m && ["GET", `/transcripts/${m}`],
+  stop: (m) => m && ["DELETE", `/bots/${m}`],
+};
+function vexaBase(raw) {
+  try {
+    const u = new URL(String(raw));
+    const local = u.protocol === "http:" && (u.hostname === "localhost" || u.hostname === "127.0.0.1");
+    if ((u.protocol !== "https:" && !local) || u.username || u.password) return null;
+    return u.origin + u.pathname.replace(/\/+$/, "");
+  } catch {
+    return null;
+  }
+}
+ipcMain.handle("vexa", async (event, p) => {
+  if (!sameOrigin(event.senderFrame?.url || "") || !p || typeof p !== "object") return { error: "Not allowed." };
+  const base = vexaBase(p.baseUrl);
+  const key = typeof p.key === "string" ? p.key.trim() : "";
+  if (!base || !key || key.length > 200 || /[\r\n]/.test(key)) return { error: "Check the bot service address and key." };
+  const meeting = ["google_meet", "teams", "zoom"].includes(p.platform) && /^[A-Za-z0-9-]{1,40}$/.test(String(p.nativeId || ""))
+    ? `${p.platform}/${encodeURIComponent(p.nativeId)}`
+    : null;
+  const route = VEXA_ACTIONS[p.action] && VEXA_ACTIONS[p.action](meeting);
+  if (!route) return { error: "Unknown action or meeting." };
+  let body;
+  if (p.action === "send") {
+    body = { recording_enabled: false }; // never ask the bot service to keep audio
+    for (const f of ["bot_name", "platform", "native_meeting_id", "passcode", "meeting_url", "language"]) {
+      const v = p.bot && p.bot[f];
+      if (typeof v === "string" && v.length <= 2000) body[f] = v;
+    }
+  }
+  try {
+    const res = await fetch(base + route[1], {
+      method: route[0],
+      headers: { "X-API-Key": key, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+      redirect: "error",
+      signal: AbortSignal.timeout(20000),
+    });
+    const text = await res.text();
+    let parsed = null;
+    try {
+      parsed = text && text.length < 2000000 ? JSON.parse(text) : null;
+    } catch {
+      parsed = null;
+    }
+    return { ok: res.ok, status: res.status, body: parsed };
+  } catch {
+    return { error: "Could not reach the bot service." };
+  }
+});
 
 ipcMain.on("origin", (event) => {
   event.returnValue = ORIGIN;
@@ -186,10 +306,12 @@ ipcMain.on("status", (event, state, detail) => {
     rec.timer = null;
   }
   if (state === "saved") {
+    remember(rec, "Notes saved");
     notify("Call notes saved", `Your ${calls.labelOf(rec.app)} call is in Meetings with suggested tasks to review.`, () => showMain());
     setTimeout(() => closeRecording(id), 1500);
   }
   if (state === "error") {
+    remember(rec, "Failed: " + String(detail || "error").slice(0, 60));
     notify("Call notes failed", String(detail || "Something went wrong.").slice(0, 200), () => showMain());
     closeRecording(id);
   }
@@ -199,6 +321,11 @@ ipcMain.on("status", (event, state, detail) => {
 // ---------------- watching for calls ----------------
 
 let callState = { phase: "idle" };
+/** Check every 2 s while a call may be on, every 4 s otherwise (fewer processes started when nothing is happening). */
+function loop() {
+  poll();
+  setTimeout(loop, callState.phase === "call" ? POLL_MS : 2 * POLL_MS);
+}
 function poll() {
   execFile("reg", ["query", calls.MIC_KEY, "/s"], { windowsHide: true, timeout: 5000 }, (err, stdout) => {
     if (err && !stdout) return;
@@ -213,6 +340,8 @@ function poll() {
       const id = current;
       current = null;
       if (skipped || action.type === "drop") {
+        const rec = recordings.get(id);
+        if (rec && action.type === "drop") remember(rec, "Too short, discarded");
         send(id, "call-cancel");
         closeRecording(id);
       } else {
@@ -254,12 +383,20 @@ function statusText() {
   if (rec) return `Taking notes: ${calls.labelOf(rec.app)} call`;
   const busy = [...recordings.values()].some((r) => r.state === "transcribing");
   if (busy) return "Turning the last call into notes...";
-  return "Waiting for WhatsApp or Teams calls";
+  return "Waiting for calls";
 }
 
 function updateTray() {
+  const rec = current !== null ? recordings.get(current) : null;
+  if (rec) showIndicator(calls.labelOf(rec.app));
+  else hideIndicator();
   if (!tray) return;
+  tray.setImage(nativeImage.createFromPath(path.join(__dirname, rec ? "icon-recording.png" : "icon.png")).resize({ width: 16, height: 16 }));
   tray.setToolTip("ActionBrain Call Notes\n" + statusText());
+  const history = (settings.history || []).slice(0, 10).map((h) => ({
+    label: `${new Date(h.at).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}  ${h.app}, ${h.mins} min: ${h.outcome}`,
+    enabled: false,
+  }));
   const toggle = (key) => () => {
     settings.apps[key] = !settings.apps[key];
     saveSettings();
@@ -268,6 +405,13 @@ function updateTray() {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: statusText(), enabled: false },
+      ...(rec
+        ? [
+            { label: "Stop and keep the notes", click: () => stopCurrent() },
+            { label: "Skip this call (keep nothing)", click: () => skipCurrent() },
+          ]
+        : []),
+      { label: "Recent calls", submenu: history.length ? history : [{ label: "None yet", enabled: false }] },
       { type: "separator" },
       { label: "Open ActionBrain", click: () => showMain() },
       { type: "separator" },
@@ -365,6 +509,11 @@ app.whenReady().then(async () => {
   tray = new Tray(nativeImage.createFromPath(iconPath()).resize({ width: 16, height: 16 }));
   tray.on("click", () => showMain());
   updateTray();
-  setInterval(poll, POLL_MS);
-  poll();
+  loop();
+  // Laptop going to sleep mid-call: finish with what was recorded (it is transcribed after waking); start fresh on wake.
+  powerMonitor.on("suspend", () => stopCurrent());
+  powerMonitor.on("resume", () => {
+    callState = { phase: "idle" };
+    updateTray();
+  });
 });

@@ -12,7 +12,8 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `connect-src 'self' https://*.supabase.co${isDev ? " ws://localhost:* http://localhost:*" : ""}`,
+  // Sarvam and OpenAI: the customer's own cloud speech engine, called straight from the browser with their key (Milestone 36)
+  `connect-src 'self' https://*.supabase.co https://api.sarvam.ai https://api.openai.com${isDev ? " ws://localhost:* http://localhost:*" : ""}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

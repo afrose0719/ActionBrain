@@ -31,7 +31,7 @@ export function SpeechEnginePicker() {
         {cloud ? <Cloud size={14} className="mt-0.5 shrink-0" /> : <Lock size={14} className="mt-0.5 shrink-0 text-success-600" />}
         <span>
           {ENGINES[engine].note}
-          {cloud && " The key is kept only in this browser. If it fails, ActionBrain uses the on-device engine instead."}
+          {cloud && " The key stays in this browser, never in ActionBrain's database. If it fails, ActionBrain uses the on-device engine instead."}
         </span>
       </p>
       {cloud && (
@@ -50,6 +50,20 @@ export function SpeechEnginePicker() {
             onChange={(e) => update({ ...prefs, keys: { ...prefs.keys, [engine]: e.target.value.trim() } })}
           />
           {!key && <p className="mt-1 text-xs text-ink-muted">Without a key, the on-device engine is used.</p>}
+          <label className="mt-2 flex items-start gap-2 text-xs">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 accent-brand-600"
+              checked={Boolean(prefs.remember)}
+              onChange={(e) => update({ ...prefs, remember: e.target.checked })}
+            />
+            <span>
+              Remember this key on this device
+              <span className="block text-ink-muted">
+                Otherwise it is forgotten when the browser closes. Tick it for automatic call notes in the Windows helper.
+              </span>
+            </span>
+          </label>
         </div>
       )}
     </div>

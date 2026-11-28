@@ -7,6 +7,8 @@ export type DesktopBridge = {
   onCallEnded(fn: () => void): void;
   /** The person skipped this call, or it was too short: throw the recording away. */
   onCallCancelled(fn: () => void): void;
+  /** Helper 0.2+: the notetaker bot service, called straight from the computer. */
+  vexa?(payload: Record<string, unknown>): Promise<{ ok: boolean; status: number; body: unknown } | { error: string }>;
   /** Progress for the helper's tray and notifications. */
   report(state: "recording" | "transcribing" | "saved" | "error", detail?: string): void;
 };

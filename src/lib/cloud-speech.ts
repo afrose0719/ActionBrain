@@ -3,6 +3,7 @@
 // ActionBrain's server, and the key is kept only in this browser. The on-device Whisper stays the default.
 
 import { joinTranscripts, planSegments, WHISPER_RATE } from "./audio.ts";
+import { getSecret, migrateSecret, setSecret } from "./secret-store.ts";
 
 export type SpeechEngine = "local" | "sarvam" | "openai";
 
@@ -130,17 +131,24 @@ export async function transcribeInCloud(
 // ---------------- the choice and the keys: only in this browser ----------------
 
 const STORE = "actionbrain.speech";
-export type SpeechPrefs = { engine: SpeechEngine; keys: { sarvam?: string; openai?: string } };
+/** remember: keep the keys after the browser is closed (otherwise only for this browser session). */
+export type SpeechPrefs = { engine: SpeechEngine; keys: { sarvam?: string; openai?: string }; remember?: boolean };
 
 export function loadSpeechPrefs(): SpeechPrefs {
   try {
     const raw = JSON.parse(localStorage.getItem(STORE) ?? "null");
     const engine: SpeechEngine = raw?.engine === "sarvam" || raw?.engine === "openai" ? raw.engine : "local";
-    const keys = {
-      sarvam: typeof raw?.keys?.sarvam === "string" ? raw.keys.sarvam : undefined,
-      openai: typeof raw?.keys?.openai === "string" ? raw.keys.openai : undefined,
+    // keys saved by the first version lived inside this object: move them to the secret store once
+    migrateSecret("sarvam", raw?.keys?.sarvam);
+    migrateSecret("openai", raw?.keys?.openai);
+    if (raw?.keys) localStorage.setItem(STORE, JSON.stringify({ engine, remember: true }));
+    const sarvam = getSecret("sarvam");
+    const openai = getSecret("openai");
+    return {
+      engine,
+      keys: { sarvam: sarvam.value || undefined, openai: openai.value || undefined },
+      remember: raw?.remember === true || sarvam.remembered || openai.remembered,
     };
-    return { engine, keys };
   } catch {
     return { engine: "local", keys: {} };
   }
@@ -148,10 +156,12 @@ export function loadSpeechPrefs(): SpeechPrefs {
 
 export function saveSpeechPrefs(p: SpeechPrefs) {
   try {
-    localStorage.setItem(STORE, JSON.stringify(p));
+    localStorage.setItem(STORE, JSON.stringify({ engine: p.engine, remember: Boolean(p.remember) })); // never the keys
   } catch {
     /* private mode: the choice lasts for this page only */
   }
+  setSecret("sarvam", p.keys.sarvam ?? "", Boolean(p.remember));
+  setSecret("openai", p.keys.openai ?? "", Boolean(p.remember));
 }
 
 /** The engine to actually use: a cloud engine only when its key is there. */
