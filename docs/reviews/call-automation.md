@@ -118,3 +118,14 @@ transcribed on the phone, tasks extracted, raw audio deleted after the user's re
 Sources given: MDN getDisplayMedia and systemAudio; Chrome system-audio sharing (Windows, macOS 14.2+); Plaud product pages (call mode,
 NotePin limits); WhatsApp Help (linked devices); Samsung India (call recording limits); Microsoft Learn (transcript APIs, delegated
 permissions, admin consent, Teams admin policy for Graph transcript access).
+
+## Follow-up 3: the call-recorder apps from Google search (28 November 2026)
+Search results show Play Store apps that say they record WhatsApp calls (Cube ACR, Talker ACR, "Voice Call Recorder").
+**How they work:** an Accessibility service ("Cube ACR App Connector") plus the microphone with the "Voice recognition" source. Android
+lets an Accessibility service keep the microphone during a call, but the microphone mostly hears **your** voice; the other side is only
+picked up if it leaks from the earpiece or the call is on speaker. Their own FAQs and reviews: "records only my voice" on many phones,
+fails with Bluetooth or headphones, depends on brand and Android version. WhatsApp does not tell the other person.
+**For ActionBrain:** do not become a recorder ourselves (the Play build may not use Accessibility for call audio; the full build could, with
+the same unreliable results). Instead, the planned **audio-folder import** picks up recordings from whatever recorder the user chooses
+(Cube ACR, Samsung's own recorder, a Plaud), with zero taps. First test on the owner's Galaxy A06: does Cube ACR get both voices on a
+WhatsApp call? Meta's Calling API recording only covers calls on a WhatsApp Business API number.
