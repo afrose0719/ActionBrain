@@ -51,3 +51,7 @@ next-env.d.ts
 /android/local.properties
 /android/.kotlin/
 *.apk
+
+# desktop helper (see desktop/)
+/desktop/node_modules/
+/desktop/dist/

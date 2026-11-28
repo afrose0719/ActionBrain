@@ -9,6 +9,7 @@ import { cleanTranscript } from "@/lib/transcript";
 import { SuggestionList } from "@/components/suggestion-list";
 import { CallRecorder, type RecordingResult } from "@/components/call-recorder";
 import { parseRecap } from "@/lib/recap";
+import { getDesktopBridge, parseDesktopCall } from "@/lib/desktop-bridge";
 import { formatDuration } from "@/lib/audio";
 import { isSharedId, takeSharedFile } from "@/lib/shared-files";
 import type { RawCommitment } from "@/lib/ai/actions";
@@ -34,6 +35,7 @@ export default function MeetingsPage() {
   const [showRecorder, setShowRecorder] = useState(false);
   const [sharedFile, setSharedFile] = useState<File | null>(null);
   const [recap, setRecap] = useState<{ name: string; via: string; mins: number } | null>(null);
+  const [desktopCall, setDesktopCall] = useState<{ via: string } | null>(null);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(nowForInput);
   const [attendees, setAttendees] = useState("");
@@ -66,6 +68,18 @@ export default function MeetingsPage() {
     window.history.replaceState(null, "", "/meetings");
     const id = requestAnimationFrame(() => {
       setRecap(parsed);
+      setShowRecorder(true);
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  // The Windows Call Notes helper (desktop/) opens /meetings?desktop=call&via=<app> in a hidden window when a call starts.
+  useEffect(() => {
+    const call = parseDesktopCall(window.location.search);
+    if (!call || !getDesktopBridge()) return;
+    window.history.replaceState(null, "", "/meetings");
+    const id = requestAnimationFrame(() => {
+      setDesktopCall(call);
       setShowRecorder(true);
     });
     return () => cancelAnimationFrame(id);
@@ -220,18 +234,30 @@ export default function MeetingsPage() {
     const { data, error } = await createClient()
       .from("meetings")
       .insert({
-        title: recap ? `${recap.via} call with ${recap.name} (recap)` : `Call on ${when} (${formatDuration(r.durationSec)})`,
+        title: recap
+          ? `${recap.via} call with ${recap.name} (recap)`
+          : desktopCall
+            ? `${desktopCall.via} call on ${when} (${formatDuration(r.durationSec)})`
+            : `Call on ${when} (${formatDuration(r.durationSec)})`,
         meeting_date: r.startedAt.toISOString(),
         attendees: recap ? recap.name : null, // the AI then knows who "she" or "he" in the recap is
         transcript: r.text,
       })
       .select()
       .single();
-    if (error) return setError(error.message);
+    const desktop = desktopCall ? getDesktopBridge() : null;
+    if (error) {
+      desktop?.report("error", "Could not save the notes: " + error.message);
+      return setError(error.message);
+    }
     setShowRecorder(false);
     setRecap(null);
+    setDesktopCall(null);
     await load();
-    analyze(data as Meeting);
+    if (desktop) {
+      await analyze(data as Meeting); // the helper closes this hidden window when it hears "saved", so finish first
+      desktop.report("saved");
+    } else analyze(data as Meeting);
   }
 
   async function createTask(m: Meeting, s: Suggestion) {
@@ -290,6 +316,7 @@ export default function MeetingsPage() {
         <CallRecorder
           initialFile={sharedFile}
           recapOf={recap}
+          autoCall={desktopCall}
           onTranscript={saveRecording}
           onClose={() => {
             setShowRecorder(false);

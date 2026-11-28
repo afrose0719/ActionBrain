@@ -20,7 +20,7 @@ test("anything unexpected is refused", () => {
 
 test("the recap is the owner's own voice: no consent checkbox, saved with the caller as attendee", () => {
   const recorder = readFileSync("src/components/call-recorder.tsx", "utf8");
-  assert.ok(recorder.includes("useState(Boolean(recapOf))") && recorder.includes("Only your own voice is recorded") && recorder.includes("Start recap"));
+  assert.ok(recorder.includes("useState(Boolean(recapOf || autoCall))") && recorder.includes("Only your own voice is recorded") && recorder.includes("Start recap"));
   const page = readFileSync("src/app/(app)/meetings/page.tsx", "utf8");
   assert.ok(page.includes("attendees: recap ? recap.name : null"));
 });

@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
       "jsx-a11y/control-has-associated-label": ["error", { ignoreElements: ["audio", "canvas", "embed", "input", "textarea", "tr", "video"] }],
     },
   },
+  // The Windows helper (desktop/) is a CommonJS Electron app: require() is how it loads Electron.
+  { files: ["desktop/**/*.cjs"], rules: { "@typescript-eslint/no-require-imports": "off" } },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -23,6 +25,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // vendored third-party engine copied here by scripts/copy-ort.mjs
     "public/ort/**",
+    // the desktop helper's own dependencies and installer output
+    "desktop/node_modules/**",
+    "desktop/dist/**",
   ]),
 ]);
 
