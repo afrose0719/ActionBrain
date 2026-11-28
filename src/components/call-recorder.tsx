@@ -14,6 +14,9 @@ import { LANGUAGES, MODELS, modelSize, type Device, type WhisperModel } from "@/
 import { formatDuration, isSilent } from "@/lib/audio";
 import { AudioFileError, decodeAudioFile } from "@/lib/decode-audio";
 import { transcribeSamples, type Engine } from "@/lib/transcribe-samples";
+import { getDesktopBridge } from "@/lib/desktop-bridge";
+import { effectiveEngine, loadSpeechPrefs, transcribeInCloud } from "@/lib/cloud-speech";
+import { SpeechEnginePicker } from "@/components/speech-engine-picker";
 
 export type RecordingResult = { text: string; startedAt: Date; durationSec: number };
 
@@ -51,16 +54,22 @@ export function CallRecorder({
   onClose,
   initialFile = null,
   recapOf = null,
+  autoCall = null,
 }: {
   onTranscript: (result: RecordingResult) => void | Promise<void>;
   onClose: () => void;
   /** After-call recap (Milestone 32): the call it is about. Only the owner speaks, so no consent checkbox is needed. */
   recapOf?: { name: string; via: string; mins: number } | null;
+  /**
+   * Opened by the Windows Call Notes helper (desktop/) because a call started: record this computer's sound + the microphone at once,
+   * stop when the helper says the call ended, and report progress to it. The person agreed to this in the helper.
+   */
+  autoCall?: { via: string } | null;
   /** A call recording that arrived from the Android share sheet. It is transcribed once the person confirms they may use it. */
   initialFile?: File | null;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
-  const [consent, setConsent] = useState(Boolean(recapOf));
+  const [consent, setConsent] = useState(Boolean(recapOf || autoCall));
   const [prefs, setPrefs] = useState<Prefs>(loadPrefs);
   const [elapsed, setElapsed] = useState(0);
   const [level, setLevel] = useState(-100);
@@ -76,7 +85,8 @@ export function CallRecorder({
     const id = requestAnimationFrame(() => setCanUseComputer(computerAudioAvailable(navigator)));
     return () => cancelAnimationFrame(id);
   }, []);
-  const fromComputer = source === "computer" && canUseComputer && !recapOf;
+  const fromComputer = Boolean(autoCall) || (source === "computer" && canUseComputer && !recapOf);
+  const desktop = autoCall ? getDesktopBridge() : null;
 
   const capture = useRef<Awaited<ReturnType<typeof captureMicrophone>> | null>(null);
   const client = useRef<Engine | null>(null);
@@ -85,6 +95,8 @@ export function CallRecorder({
   const wakeLock = useRef<WakeLock | null>(null);
   const cancelled = useRef(false);
   const finishRef = useRef<() => void>(() => {});
+  const discardRef = useRef<() => void>(() => {});
+  const startRef = useRef<() => void>(() => {});
 
   const busy = phase !== "idle";
 
@@ -156,9 +168,11 @@ export function CallRecorder({
       setElapsed(0);
       setPhase("recording");
       keepScreenAwake();
+      desktop?.report("recording");
     } catch (e) {
       setPhase("idle");
       const name = e instanceof DOMException ? e.name : "";
+      if (desktop) return desktop.report("error", `Could not record the call (${name || (e instanceof Error ? e.message : "unknown error")}).`);
       if (e instanceof NoComputerAudioError) return setError(computerAudioHelp(navigator.userAgent));
       setError(
         name === "NotAllowedError"
@@ -174,6 +188,33 @@ export function CallRecorder({
 
   // Turns audio into text with the shared engine (src/lib/transcribe-samples.ts), then hands the text to the page.
   async function transcribe(samples: Int16Array, durationSec: number, when: Date) {
+    // The customer's own cloud engine first, if they chose one and gave a key (Milestone 36). The audio goes straight from this
+    // device to that provider. If it fails, fall back to the on-device engine rather than losing the call.
+    const speech = loadSpeechPrefs();
+    const cloud = effectiveEngine(speech);
+    if (cloud === "sarvam" || cloud === "openai") {
+      try {
+        setPhase("transcribing");
+        setPercent(0);
+        setStep(cloud === "sarvam" ? "with Sarvam" : "with OpenAI");
+        desktop?.report("transcribing");
+        const text = await transcribeInCloud(samples, {
+          engine: cloud,
+          key: speech.keys[cloud] ?? "",
+          language: prefs.language,
+          onPercent: setPercent,
+          isCancelled: () => cancelled.current,
+        });
+        if (text) {
+          await onTranscript({ text, startedAt: when, durationSec });
+          setPhase("idle");
+          return;
+        }
+      } catch (e) {
+        if (cancelled.current) return setPhase("idle");
+        setError(`${e instanceof Error ? e.message : "The cloud engine failed."} Using the on-device engine instead.`);
+      }
+    }
     try {
       const text = await transcribeSamples(samples, {
         model: prefs.model,
@@ -183,6 +224,7 @@ export function CallRecorder({
         onPhase: (p, d) => {
           setDevice(d);
           setPhase(p);
+          if (p === "transcribing") desktop?.report("transcribing");
         },
         onPercent: setPercent,
         onStep: setStep,
@@ -191,10 +233,13 @@ export function CallRecorder({
           client.current = e;
         },
       });
-      if (!text) setError("No speech was recognised in that recording.");
-      else await onTranscript({ text, startedAt: when, durationSec });
+      if (!text) {
+        setError("No speech was recognised in that recording.");
+        desktop?.report("error", "No speech was recognised in that call.");
+      } else await onTranscript({ text, startedAt: when, durationSec });
     } catch (e) {
       if (!cancelled.current) setError(e instanceof Error ? e.message : "Transcription failed.");
+      if (!cancelled.current) desktop?.report("error", e instanceof Error ? e.message : "Transcription failed.");
     } finally {
       setPhase("idle");
     }
@@ -229,10 +274,12 @@ export function CallRecorder({
     const { samples, durationSec } = await cap.stop(); // this also turns the microphone off
     if (durationSec < 3) {
       setPhase("idle");
+      desktop?.report("error", "The call was too short to take notes.");
       return setError("That was too short to transcribe. Record at least a few seconds.");
     }
     if (isSilent(samples)) {
       setPhase("idle");
+      desktop?.report("error", "No sound was picked up from the call.");
       return setError(
         fromComputer
           ? "No sound was picked up. Check that the call was playing on this computer and that \"Share system audio\" was ticked."
@@ -244,7 +291,21 @@ export function CallRecorder({
   // keeps the 60-minute auto-stop pointing at the latest version of finish()
   useEffect(() => {
     finishRef.current = finish;
+    discardRef.current = discard;
+    startRef.current = start;
   });
+
+  // Windows helper: start at once, stop when the call ends, throw away a skipped call. Runs once.
+  useEffect(() => {
+    if (!autoCall) return;
+    const bridge = getDesktopBridge();
+    if (!bridge) return;
+    bridge.onCallEnded(() => finishRef.current());
+    bridge.onCallCancelled(() => discardRef.current());
+    const id = requestAnimationFrame(() => startRef.current());
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function discard() {
     capture.current?.release();
@@ -264,7 +325,13 @@ export function CallRecorder({
   return (
     <section className="card card-body mb-6 grid gap-4" aria-label="Record a call">
       <div className="flex items-center justify-between">
-        <h2>{recapOf ? `Recap: ${recapOf.via} call with ${recapOf.name}` : "Record a call, or use a call recording"}</h2>
+        <h2>
+          {recapOf
+            ? `Recap: ${recapOf.via} call with ${recapOf.name}`
+            : autoCall
+              ? `Taking notes on your ${autoCall.via} call`
+              : "Record a call, or use a call recording"}
+        </h2>
         <button type="button" className="btn-ghost btn-sm" onClick={onClose} disabled={busy} aria-label="Close recorder">
           <X size={16} />
         </button>
@@ -314,6 +381,8 @@ export function CallRecorder({
               </select>
             </div>
           </div>
+
+          <SpeechEnginePicker />
 
           {gpuAvailable() && (
             <div>
