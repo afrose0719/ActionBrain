@@ -1,7 +1,7 @@
 {
   "name": "actionbrain-call-notes",
   "productName": "ActionBrain Call Notes",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Takes notes on WhatsApp Desktop and Microsoft Teams calls automatically, transcribed on your computer.",
   "license": "Apache-2.0",
   "author": "ActionBrain contributors",
@@ -18,7 +18,15 @@
   "build": {
     "appId": "app.actionbrain.desktop",
     "productName": "ActionBrain Call Notes",
-    "files": ["main.cjs", "preload.cjs", "calls.cjs", "icon.png", "package.json"],
+    "files": ["main.cjs", "preload.cjs", "calls.cjs", "icon.png", "icon-recording.png", "package.json"],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    },
     "directories": { "output": "dist" },
     "win": { "target": "nsis", "icon": "icon.png", "artifactName": "ActionBrain-Call-Notes-Setup-${version}.exe" },
     "nsis": { "oneClick": true, "perMachine": false, "runAfterFinish": true }

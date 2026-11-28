@@ -1,3 +1,5 @@
+import { getSecret, migrateSecret, setSecret } from "./secret-store.ts";
+
 // Meeting notetaker bot, Fireflies style (Milestone 37). The customer brings their OWN bot service: Vexa (open source, Apache-2.0),
 // either self-hosted or Vexa's hosted API with their own key. ActionBrain sends "ActionBrain Notetaker" into Google Meet, Teams or
 // Zoom (by hand, or automatically from the calendar), collects the speaker-labelled transcript afterwards, and turns it into
@@ -44,8 +46,9 @@ const ISO: Record<string, string> = {
 };
 
 /** The body for Vexa's POST /bots. Language left out = detected for each stretch of speech (best for mixed meetings). */
-export function botRequest(ref: MeetingRef, opts: { botName?: string; language?: string | null } = {}): Record<string, string> {
-  const body: Record<string, string> = { bot_name: (opts.botName || BOT_NAME).slice(0, 60) };
+export function botRequest(ref: MeetingRef, opts: { botName?: string; language?: string | null } = {}): Record<string, string | boolean> {
+  // recording_enabled false: hosted Vexa keeps the meeting AUDIO unless told not to; ActionBrain only needs the text (round 9)
+  const body: Record<string, string | boolean> = { bot_name: (opts.botName || BOT_NAME).slice(0, 60), recording_enabled: false };
   if (ref.nativeId) {
     body.platform = ref.platform;
     body.native_meeting_id = ref.nativeId;
@@ -125,7 +128,7 @@ export function safeBaseUrl(raw: string): string | null {
 
 // ---------------- settings and the bots sent, kept only in this browser ----------------
 
-export type NotetakerPrefs = { baseUrl: string; key: string; botName: string; autoJoin: boolean; language: string | null };
+export type NotetakerPrefs = { baseUrl: string; key: string; botName: string; autoJoin: boolean; language: string | null; remember?: boolean };
 export type SentBot = { platform: Platform; nativeId: string; meetingUrl: string; title: string; sentAt: number; eventId?: string };
 
 const PREFS = "actionbrain.notetaker";
@@ -147,14 +150,78 @@ const write = (k: string, v: unknown) => {
 
 export function loadNotetakerPrefs(): NotetakerPrefs {
   const p = read<Partial<NotetakerPrefs>>(PREFS, {});
+  migrateSecret("vexa", p.key); // the first version kept the key inside these settings
+  if (p.key) write(PREFS, { ...p, key: undefined, remember: true });
+  const key = getSecret("vexa");
   return {
     baseUrl: typeof p.baseUrl === "string" && p.baseUrl ? p.baseUrl : HOSTED_VEXA,
-    key: typeof p.key === "string" ? p.key : "",
+    key: key.value,
     botName: typeof p.botName === "string" && p.botName.trim() ? p.botName : BOT_NAME,
     autoJoin: p.autoJoin === true,
     language: typeof p.language === "string" ? p.language : null,
+    remember: p.remember === true || key.remembered,
   };
 }
-export const saveNotetakerPrefs = (p: NotetakerPrefs) => write(PREFS, p);
+export const saveNotetakerPrefs = (p: NotetakerPrefs) => {
+  write(PREFS, { ...p, key: undefined }); // the key goes to the secret store, never into these settings
+  setSecret("vexa", p.key, Boolean(p.remember));
+};
 export const loadSentBots = (): SentBot[] => read<SentBot[]>(SENT, []).filter((b) => b && typeof b.nativeId === "string");
 export const saveSentBots = (b: SentBot[]) => write(SENT, b.slice(-50));
+
+// ---------------- what may come back from the bot service (kept small: no raw upstream data reaches the page) ----------------
+
+/** Only the fields the page uses, from any Vexa reply. Unknown fields are dropped. */
+export function cleanBotReply(action: string, body: unknown): unknown {
+  const o = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const str = (v: unknown, max = 300) => (typeof v === "string" ? v.slice(0, max) : undefined);
+  if (action === "send") return { platform: str(o.platform, 20), native_meeting_id: str(o.native_meeting_id, 60), status: str(o.status, 40) };
+  if (action === "status") {
+    const list = Array.isArray(o.running_bots) ? o.running_bots : Array.isArray(o.bots) ? o.bots : Array.isArray(body) ? (body as unknown[]) : [];
+    return {
+      running: list
+        .map((b) => (b && typeof b === "object" ? (b as Record<string, unknown>) : {}))
+        .map((b) => ({ platform: str(b.platform, 20), native_meeting_id: str(b.native_meeting_id, 60), status: str(b.status, 40) }))
+        .filter((b) => b.native_meeting_id)
+        .slice(0, 50),
+    };
+  }
+  if (action === "transcript") {
+    const segs = Array.isArray(o.segments) ? o.segments : [];
+    return {
+      segments: segs.slice(0, 20000).map((x) => {
+        const s = (x && typeof x === "object" ? x : {}) as Record<string, unknown>;
+        return {
+          text: str(s.text, 5000),
+          speaker: str(s.speaker, 120),
+          absolute_start_time: str(s.absolute_start_time, 40),
+          start_time: typeof s.start_time === "number" ? s.start_time : undefined,
+        };
+      }),
+    };
+  }
+  return {};
+}
+
+/** A short error for the page, without echoing what the bot service said (it could contain internal details). */
+export function botError(status: number): string {
+  if (status === 401 || status === 403) return "The bot service refused the key. Check your Vexa key.";
+  if (status === 402) return "Your bot service account has no credit left.";
+  if (status === 404) return "The bot service does not know that meeting (it may have ended).";
+  if (status === 409) return "A notetaker is already in that meeting.";
+  if (status === 422) return "The bot service could not read that meeting link.";
+  if (status === 429) return "Too many requests to the bot service. Wait a minute.";
+  return `The bot service had a problem (${status}).`;
+}
+
+/** A self-hosted bot service must resolve only to public addresses (stops DNS tricks that point at internal networks). */
+export function isPublicAddress(ip: string): boolean {
+  const v4 = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(ip);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return !(a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224);
+  }
+  const v6 = ip.toLowerCase();
+  if (v6.startsWith("::ffff:")) return isPublicAddress(v6.slice(7));
+  return !(v6 === "::" || v6 === "::1" || v6.startsWith("fc") || v6.startsWith("fd") || v6.startsWith("fe80"));
+}

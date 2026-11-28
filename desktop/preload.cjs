@@ -14,6 +14,8 @@ if (origin && window.location.origin === origin) {
     /** The person skipped this call, or it was only a few seconds (a voice note): throw the recording away. */
     onCallCancelled: (fn) => ipcRenderer.on("call-cancel", () => fn()),
     /** "recording" | "transcribing" | "saved" | "error", with a short message for errors. */
+    /** The notetaker bot service, called from this computer (not through ActionBrain's server). */
+    vexa: (payload) => ipcRenderer.invoke("vexa", payload),
     report: (state, detail) => ipcRenderer.send("status", String(state).slice(0, 20), String(detail || "").slice(0, 300)),
   });
 }

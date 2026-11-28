@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, Square } from "lucide-react";
 import { authFetch } from "@/lib/api";
+import { getDesktopBridge } from "@/lib/desktop-bridge";
 import { LANGUAGES } from "@/lib/whisper/protocol";
 import {
+  botError,
   botRequest,
+  cleanBotReply,
   HOSTED_VEXA,
   loadNotetakerPrefs,
   loadSentBots,
@@ -26,7 +29,7 @@ import {
 
 export type BotNotes = { title: string; attendees: string | null; transcript: string; startedAt: Date };
 
-type Relay = { ok: boolean; status: number; body: unknown } | { error: string };
+type Relay = { ok: boolean; status: number; body: unknown; message?: string } | { error: string };
 
 /** "ActionBrain Notetaker": a bot that joins Meet, Teams and Zoom like Fireflies, using the customer's own Vexa account. */
 export function NotetakerPanel({ onNotes }: { onNotes: (notes: BotNotes) => Promise<void> }) {
@@ -57,9 +60,18 @@ export function NotetakerPanel({ onNotes }: { onNotes: (notes: BotNotes) => Prom
     saveSentBots(next);
   }, []);
 
+  // Inside the Windows helper: straight to the bot service, so transcripts never pass through ActionBrain's server.
+  // In a browser: through ActionBrain's relay (the bot service does not accept calls from browsers).
   const relay = useCallback(
     async (payload: Record<string, unknown>): Promise<Relay> => {
-      const res = await authFetch("/api/notetaker", { method: "POST", body: JSON.stringify({ baseUrl: prefs.baseUrl, key: prefs.key, ...payload }) });
+      const full = { baseUrl: prefs.baseUrl, key: prefs.key, ...payload };
+      const direct = getDesktopBridge()?.vexa;
+      if (direct) {
+        const r = await direct(full).catch(() => ({ error: "The helper could not reach the bot service." }));
+        if ("error" in r) return r;
+        return { ...r, body: r.ok ? cleanBotReply(String(payload.action), r.body) : null, message: r.ok ? undefined : botError(r.status) };
+      }
+      const res = await authFetch("/api/notetaker", { method: "POST", body: JSON.stringify(full) });
       return res.json().catch(() => ({ error: "The bot service answered with something unreadable." }));
     },
     [prefs.baseUrl, prefs.key]
@@ -69,10 +81,7 @@ export function NotetakerPanel({ onNotes }: { onNotes: (notes: BotNotes) => Prom
     async (ref: MeetingRef, title: string, eventId?: string) => {
       const r = await relay({ action: "send", bot: botRequest(ref, { botName: prefs.botName, language: prefs.language }) });
       if ("error" in r) throw new Error(r.error);
-      if (!r.ok) {
-        const detail = (r.body as { detail?: unknown })?.detail;
-        throw new Error(`The bot service refused (${r.status})${typeof detail === "string" ? `: ${detail}` : ""}.`);
-      }
+      if (!r.ok) throw new Error(r.message ?? `The bot service refused (${r.status}).`);
       const body = (r.body ?? {}) as { platform?: unknown; native_meeting_id?: unknown };
       const bot: SentBot = {
         platform: (typeof body.platform === "string" ? body.platform : ref.platform) as Platform,
@@ -211,7 +220,16 @@ export function NotetakerPanel({ onNotes }: { onNotes: (notes: BotNotes) => Prom
                 placeholder="vxa_... from vexa.ai/account"
                 onChange={(e) => update({ ...prefs, key: e.target.value.trim() })}
               />
-              <p className="mt-1 text-xs text-ink-muted">Kept only in this browser; sent with each request and never stored by ActionBrain.</p>
+              <p className="mt-1 text-xs text-ink-muted">Kept in this browser only, never in ActionBrain&apos;s database.</p>
+              <label className="mt-1 flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-brand-600"
+                  checked={Boolean(prefs.remember)}
+                  onChange={(e) => update({ ...prefs, remember: e.target.checked })}
+                />
+                Remember on this device (needed for auto-join)
+              </label>
             </div>
             <div>
               <label className="label" htmlFor="nt-name">

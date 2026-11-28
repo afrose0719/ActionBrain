@@ -69,3 +69,25 @@ Microsoft Support (microphone indicator); Vexa pricing, privacy and security pag
 DigitalOcean, Fly.io, Oracle pricing; Sarvam pricing; RunPod Whisper benchmarks; Otter, Fireflies, Fathom, tl;dv, Read.ai pricing;
 Razorpay and Stripe India fees; Play Console payments policy and India alternative billing; CBIC GST; Apache Software Foundation
 licence FAQ; GitLab handbook; Chrome Web Store program policies.
+
+## Done after round 9 (28 November 2026)
+- **Bug found while fixing:** the site's security policy only allowed connections to itself and Supabase, so the browser **blocked the
+  Sarvam/OpenAI speech engines** from M36. `connect-src` now includes `https://api.sarvam.ai` and `https://api.openai.com`.
+- **Vexa:** every bot request sends `recording_enabled: false` (no meeting audio kept by Vexa).
+- **Relay** `/api/notetaker`: per-user limit (30 a minute), self-hosted addresses must resolve only to public IPs (blocks DNS tricks
+  to internal networks), port 443 only, platform checked, replies cut to the fields the page uses, upstream error text never echoed.
+- **Windows helper talks to Vexa directly** (IPC to the main process; no CORS there): transcripts never pass through ActionBrain's
+  server, and a Vexa on the same computer (`http://localhost`) works. Checked live: a fake key reached Vexa and got 401; an internal
+  address and an unknown action were refused.
+- **Keys** (Sarvam, OpenAI, Vexa): kept only until the browser closes unless "Remember on this device" is ticked; never inside the
+  settings object; old saved keys moved once. (Strict CSP already: no inline HTML insertion, no eval in production.)
+- **Helper 0.2.0:** an always-on-top "Taking notes: X call [Stop] [Skip]" bar, a red tray icon, "Stop and keep the notes" and "Skip
+  this call" in the tray, "Recent calls" (app, time, length, outcome; never content), wording "seems to have started", sleep finishes
+  the recording and wake starts fresh, checks every 2 s during a call and 4 s otherwise, Electron fuses (RunAsNode, NODE_OPTIONS,
+  inspect arguments off; asar integrity and asar-only on; cookie encryption on).
+- **Privacy page** now describes each path separately, including that browser notetaker transcripts pass through our server and that
+  Teams may tell participants a recorder is running.
+- **Signing is now a must, not a nice-to-have:** on this Windows 11 laptop **Smart App Control blocked every new unsigned build**
+  ("An Application Control policy has blocked this file"), with or without fuses. Customers with Smart App Control on cannot run the
+  ZIP. Next: Microsoft Store (MSIX, signed by Microsoft) or SignPath's free open-source signing. Owner action needed.
+- 458 tests pass (7 new). Still not tested live: a real meeting with the bot; the helper on a real call; the recording bar on screen.
