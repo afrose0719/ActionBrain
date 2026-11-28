@@ -129,3 +129,33 @@ fails with Bluetooth or headphones, depends on brand and Android version. WhatsA
 the same unreliable results). Instead, the planned **audio-folder import** picks up recordings from whatever recorder the user chooses
 (Cube ACR, Samsung's own recorder, a Plaud), with zero taps. First test on the owner's Galaxy A06: does Cube ACR get both voices on a
 WhatsApp call? Meta's Calling API recording only covers calls on a WhatsApp Business API number.
+
+### Reviewers on "these recorders are already approved on Play" (28 November 2026)
+**Both agree:**
+- **How they work (confirmed):** Android 10+ lets an Accessibility service using the VOICE_RECOGNITION source keep the microphone during
+  a call (Android compatibility rules). That keeps the *microphone* open; it is not a tap on WhatsApp's audio. The other person is only
+  heard if their voice reaches the microphone (speaker on). Real call audio (uplink/downlink) needs privileged permissions no ordinary app
+  can get. Cube's own listing warns some phones record only your voice and suggests speaker mode.
+- **Being listed on Play is not a precedent.** Play's Accessibility policy (announced 6 April 2022, in force 11 May 2022): the Accessibility
+  API "cannot be requested for remote call audio recording"; IsAccessibilityTool is not a loophole; a disclosure does not make a forbidden
+  use allowed. Talker ACR's own guide says its Play version lost the Accessibility connector after that change. Whether Cube is
+  grandfathered, changed inside, or not yet enforced can't be told from outside. **A new ActionBrain Play build using it would risk
+  rejection or a strike on the developer account.** Keep it out of the Play build.
+- **Sideloaded build:** a small opt-in experiment is possible but brittle: still often only your voice; Android 14+ blocks starting a
+  microphone foreground service from the background, so an Accessibility service noticing a call can't always start recording. Not a
+  product promise.
+- **Right split: the user's recorder records, ActionBrain imports.** Correction: Cube may save inside its own app folder, which Android 11+
+  hides from other apps, and READ_MEDIA_AUDIO only sees shared media. Use a **folder the user picks (Storage Access Framework)** with a
+  remembered permission; Cube can move its recordings to a chosen folder. Watch while running, plus recovery scans and a check when the
+  app opens: hands-free after setup, but not always instant. Keep a visible import list with delete. Android share sheet stays as a backup.
+- **Consent:** before switching on automatic import, the user confirms recordings contain other people's voices and is reminded to tell
+  them; audio is processed on the phone, never uploaded raw, and can be deleted with its transcript. Indian courts recognise privacy in
+  private conversations, so "I was on the call" is not automatically enough.
+
+**Next build step (both):** the Android recorder-folder import: SAF folder picker with a remembered permission, finds new finished audio
+files, deduplicates, transcribes on the phone, extracts tasks, shows an import history. Then test it with Cube ACR on the owner's Galaxy A06.
+
+Sources given: Android compatibility definition (concurrent capture, VOICE_RECOGNITION for accessibility services); Android Developers
+(audio sources, privileged capture permissions, Android 14 foreground-service and while-in-use rules, scoped storage, MediaStore,
+Storage Access Framework, ACTION_OPEN_DOCUMENT_TREE); Play Console Help (Accessibility API policy, April/May 2022); Cube ACR Play listing
+and FAQ; Talker ACR installation guide; LiveLaw (Indian court rulings on recorded conversations).
