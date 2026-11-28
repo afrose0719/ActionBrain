@@ -8,6 +8,7 @@ import { authFetch } from "@/lib/api";
 import { cleanTranscript } from "@/lib/transcript";
 import { SuggestionList } from "@/components/suggestion-list";
 import { CallRecorder, type RecordingResult } from "@/components/call-recorder";
+import { FollowUpDraft } from "@/components/follow-up-draft";
 import { parseRecap } from "@/lib/recap";
 import { getDesktopBridge, parseDesktopCall } from "@/lib/desktop-bridge";
 import { formatDuration } from "@/lib/audio";
@@ -506,6 +507,7 @@ export default function MeetingsPage() {
                         />
                       )}
                     </div>
+                    <FollowUpDraft meeting={m} />
                     <div>
                       <button className="btn-ghost btn-sm" disabled={busyId === m.id} onClick={() => analyze(m)}>
                         <Sparkles size={14} />

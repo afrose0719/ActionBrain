@@ -19,7 +19,7 @@ export function getDesktopBridge(): DesktopBridge | null {
     : null;
 }
 
-const APPS = new Set(["WhatsApp", "Microsoft Teams"]);
+const APPS = new Set(["WhatsApp", "Microsoft Teams", "Zoom", "Slack", "Google Meet / browser"]); // the helper's labels (desktop/calls.cjs)
 
 /** /meetings?desktop=call&via=<app>: the helper noticed a call. Only the two known app names are accepted. */
 export function parseDesktopCall(search: string): { via: string } | null {

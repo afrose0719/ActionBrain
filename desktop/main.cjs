@@ -46,7 +46,7 @@ app.commandLine.appendSwitch("disable-renderer-backgrounding"); // the hidden re
 // ---------------- settings ----------------
 
 const settingsFile = () => path.join(app.getPath("userData"), "settings.json");
-const defaults = { consented: false, paused: false, apps: { whatsapp: true, teams: true } };
+const defaults = { consented: false, paused: false, apps: { ...calls.DEFAULT_APPS } };
 let settings = { ...defaults };
 function loadSettings() {
   try {
@@ -271,8 +271,12 @@ function updateTray() {
       { type: "separator" },
       { label: "Open ActionBrain", click: () => showMain() },
       { type: "separator" },
-      { label: "Take notes on WhatsApp calls", type: "checkbox", checked: settings.apps.whatsapp, click: toggle("whatsapp") },
-      { label: "Take notes on Teams calls", type: "checkbox", checked: settings.apps.teams, click: toggle("teams") },
+      ...calls.APPS.map((a) => ({
+        label: a.id === "browser" ? "Take notes on browser calls (Google Meet, WhatsApp Web)" : `Take notes on ${a.label} calls`,
+        type: "checkbox",
+        checked: Boolean(settings.apps[a.id]),
+        click: toggle(a.id),
+      })),
       {
         label: "Pause",
         type: "checkbox",
@@ -316,12 +320,12 @@ function quit() {
 
 /** Prominent disclosure, shown by the helper itself before anything is recorded. */
 async function askConsent() {
-  const { response } = await dialog.showMessageBox({
+  const { response, checkboxChecked } = await dialog.showMessageBox({
     type: "question",
     title: "ActionBrain Call Notes",
-    message: "Take notes on your WhatsApp and Teams calls automatically?",
+    message: "Take notes on your calls automatically?",
     detail:
-      "When WhatsApp Desktop or Microsoft Teams starts using your microphone (a call), ActionBrain records this computer's sound " +
+      "When WhatsApp, Microsoft Teams, Zoom or Slack starts using your microphone (a call), ActionBrain records this computer's sound " +
       "(the other people) and your microphone until the call ends.\n\n" +
       "The audio is turned into text on this computer and then thrown away; it is never uploaded or saved. Only the text is saved " +
       "to your own ActionBrain account, where tasks are suggested for you to review.\n\n" +
@@ -330,11 +334,13 @@ async function askConsent() {
       "and follow the recording laws where you and they are.\n\n" +
       "ActionBrain does not join the call and does not control WhatsApp or Teams. It starts with Windows; change that in the tray menu.",
     buttons: ["Agree and start", "Quit"],
+    checkboxLabel: "Also browser calls (Google Meet, WhatsApp Web). A website using the microphone for anything else would be recorded too.",
+    checkboxChecked: true,
     defaultId: 0,
     cancelId: 1,
     noLink: true,
   });
-  return response === 0;
+  return { agreed: response === 0, browser: checkboxChecked };
 }
 
 app.on("second-instance", () => showMain());
@@ -346,8 +352,10 @@ app.whenReady().then(async () => {
   loadSettings();
   allowSiteOnly();
   if (!settings.consented) {
-    if (!(await askConsent())) return quit();
+    const answer = await askConsent();
+    if (!answer.agreed) return quit();
     settings.consented = true;
+    settings.apps.browser = answer.browser;
     saveSettings();
     app.setLoginItemSettings({ openAtLogin: true, args: ["--hidden"] });
     showMain("/meetings"); // first run: sign in here once; the recording windows share this sign-in

@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import calls from "../desktop/calls.cjs";
 
 const { parseRegQuery, activeCallApp, step } = calls;
@@ -79,4 +80,19 @@ test("state machine: a voice note or mic test (under 15 s) is dropped, not trans
   r = step(r.state, "whatsapp", 6_000);
   r = step(r.state, null, 11_000);
   assert.deepEqual(r.action, { type: "drop", app: "whatsapp", ms: 6_000 });
+});
+
+test("Zoom, Slack and browser calls are recognised; browser calls only when switched on", () => {
+  const np = (path: string) => `${K}\\NonPackaged\\${path}\n    LastUsedTimeStart    REG_QWORD    0x1\n    LastUsedTimeStop    REG_QWORD    0x0\n`;
+  assert.equal(activeCallApp(parseRegQuery(np("C:#Users#me#AppData#Roaming#Zoom#bin#Zoom.exe"))), "zoom");
+  assert.equal(activeCallApp(parseRegQuery(np("C:#Users#me#AppData#Local#slack#app-4.41.0#slack.exe"))), "slack");
+  const chrome = parseRegQuery(np("C:#Program Files#Google#Chrome#Application#chrome.exe"));
+  assert.equal(activeCallApp(chrome), null, "off by default");
+  assert.equal(activeCallApp(chrome, { browser: true }), "browser");
+  assert.equal(activeCallApp(parseRegQuery(np("C:#Program Files (x86)#Microsoft#Edge#Application#msedge.exe")), { browser: true }), "browser");
+});
+
+test("every helper label is accepted by the website (and nothing else)", () => {
+  const site = readFileSync("src/lib/desktop-bridge.ts", "utf8");
+  for (const app of calls.APPS) assert.ok(site.includes(`"${app.label}"`), app.label);
 });

@@ -10,6 +10,7 @@ afterEach(() => {
 test("only the helper's own link opens the call recorder, and only for the two known apps", () => {
   assert.deepEqual(parseDesktopCall("?desktop=call&via=WhatsApp"), { via: "WhatsApp" });
   assert.deepEqual(parseDesktopCall("?desktop=call&via=Microsoft%20Teams"), { via: "Microsoft Teams" });
+  assert.deepEqual(parseDesktopCall("?desktop=call&via=Google%20Meet%20%2F%20browser"), { via: "Google Meet / browser" });
   assert.equal(parseDesktopCall("?desktop=call&via=<script>"), null);
   assert.equal(parseDesktopCall("?via=WhatsApp"), null);
   assert.equal(parseDesktopCall(""), null);

@@ -1,10 +1,10 @@
 # ActionBrain Call Notes (Windows helper)
 
-Takes notes on your **WhatsApp Desktop** and **Microsoft Teams** calls automatically. You don't click anything during the call.
+Takes notes on your **WhatsApp Desktop, Microsoft Teams, Zoom and Slack** calls, and (if you tick it) **browser calls such as Google Meet and WhatsApp Web**, automatically. You don't click anything during the call.
 
 ## How it works
 1. Windows keeps a list of which app is using the microphone (Settings → Privacy → Microphone; the microphone icon in the taskbar).
-   Every 2 seconds the helper reads that list (`calls.cjs`). When WhatsApp or Teams starts using the microphone, a call has started.
+   Every 2 seconds the helper reads that list (`calls.cjs`). When one of those apps starts using the microphone, a call has started.
 2. It opens the ActionBrain **Meetings** page in a hidden window. The page records this computer's sound (the other people) and
    your microphone (you), the same as the "On this computer" option in Chrome, but without the share prompt.
 3. When the app lets go of the microphone (after a 4-second grace period), the page turns the audio into text **on this computer**,

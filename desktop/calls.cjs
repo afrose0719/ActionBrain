@@ -11,7 +11,15 @@ const MIC_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityA
 const APPS = [
   { id: "whatsapp", label: "WhatsApp", match: /(^|\\)(5319275A\.WhatsAppDesktop_|[^\\]*#WhatsApp[^\\]*\.exe$)/i },
   { id: "teams", label: "Microsoft Teams", match: /(^|\\)(MSTeams_|[^\\]*#(ms-teams|Teams)\.exe$)/i },
+  { id: "zoom", label: "Zoom", match: /(^|\\)(ZoomVideoCommunications[^\\]*|[^\\]*#Zoom\.exe)$/i },
+  { id: "slack", label: "Slack", match: /(^|\\)(91750D7E\.Slack_[^\\]*|[^\\]*#slack\.exe)$/i },
+  // Google Meet, WhatsApp Web and other calls in a browser. A browser can also use the microphone for other things (voice typing),
+  // so this one is only on if the person ticks it; anything under 15 seconds is thrown away anyway. Checked last.
+  { id: "browser", label: "Google Meet / browser", match: /(^|\\)[^\\]*#(chrome|msedge|firefox|brave|opera|vivaldi)\.exe$/i },
 ];
+
+/** Which apps are watched when nothing is saved yet. */
+const DEFAULT_APPS = { whatsapp: true, teams: true, zoom: true, slack: true, browser: false };
 
 /**
  * Reads the text of `reg query <MIC_KEY> /s` and returns each sub-key with its start/stop values.
@@ -34,7 +42,8 @@ function parseRegQuery(text) {
 }
 
 /** Which call app is using the microphone right now ("whatsapp", "teams"), or null. Our own helper is never counted. */
-function activeCallApp(entries, enabled = { whatsapp: true, teams: true }) {
+/** @param {{key: string, start: bigint | null, stop: bigint | null}[]} entries @param {Partial<Record<string, boolean>>} [enabled] */
+function activeCallApp(entries, enabled = DEFAULT_APPS) {
   for (const e of entries) {
     const inUse = e.start !== null && e.start > 0n && e.stop === 0n;
     if (!inUse) continue;
@@ -65,4 +74,4 @@ function step(state, app, now, { endAfterMs = 4000, minMs = 15000 } = {}) {
   return { state: { phase: "idle" }, action: { type: ms >= minMs ? "finish" : "drop", app: state.app, ms } };
 }
 
-module.exports = { MIC_KEY, APPS, parseRegQuery, activeCallApp, labelOf, step };
+module.exports = { MIC_KEY, APPS, DEFAULT_APPS, parseRegQuery, activeCallApp, labelOf, step };
