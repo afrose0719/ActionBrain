@@ -15,6 +15,8 @@ import { formatDuration, isSilent } from "@/lib/audio";
 import { AudioFileError, decodeAudioFile } from "@/lib/decode-audio";
 import { transcribeSamples, type Engine } from "@/lib/transcribe-samples";
 import { getDesktopBridge } from "@/lib/desktop-bridge";
+import { effectiveEngine, loadSpeechPrefs, transcribeInCloud } from "@/lib/cloud-speech";
+import { SpeechEnginePicker } from "@/components/speech-engine-picker";
 
 export type RecordingResult = { text: string; startedAt: Date; durationSec: number };
 
@@ -186,6 +188,33 @@ export function CallRecorder({
 
   // Turns audio into text with the shared engine (src/lib/transcribe-samples.ts), then hands the text to the page.
   async function transcribe(samples: Int16Array, durationSec: number, when: Date) {
+    // The customer's own cloud engine first, if they chose one and gave a key (Milestone 36). The audio goes straight from this
+    // device to that provider. If it fails, fall back to the on-device engine rather than losing the call.
+    const speech = loadSpeechPrefs();
+    const cloud = effectiveEngine(speech);
+    if (cloud === "sarvam" || cloud === "openai") {
+      try {
+        setPhase("transcribing");
+        setPercent(0);
+        setStep(cloud === "sarvam" ? "with Sarvam" : "with OpenAI");
+        desktop?.report("transcribing");
+        const text = await transcribeInCloud(samples, {
+          engine: cloud,
+          key: speech.keys[cloud] ?? "",
+          language: prefs.language,
+          onPercent: setPercent,
+          isCancelled: () => cancelled.current,
+        });
+        if (text) {
+          await onTranscript({ text, startedAt: when, durationSec });
+          setPhase("idle");
+          return;
+        }
+      } catch (e) {
+        if (cancelled.current) return setPhase("idle");
+        setError(`${e instanceof Error ? e.message : "The cloud engine failed."} Using the on-device engine instead.`);
+      }
+    }
     try {
       const text = await transcribeSamples(samples, {
         model: prefs.model,
@@ -352,6 +381,8 @@ export function CallRecorder({
               </select>
             </div>
           </div>
+
+          <SpeechEnginePicker />
 
           {gpuAvailable() && (
             <div>
