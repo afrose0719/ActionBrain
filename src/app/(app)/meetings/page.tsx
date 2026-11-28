@@ -9,6 +9,7 @@ import { cleanTranscript } from "@/lib/transcript";
 import { SuggestionList } from "@/components/suggestion-list";
 import { CallRecorder, type RecordingResult } from "@/components/call-recorder";
 import { FollowUpDraft } from "@/components/follow-up-draft";
+import { NotetakerPanel, type BotNotes } from "@/components/notetaker-panel";
 import { parseRecap } from "@/lib/recap";
 import { getDesktopBridge, parseDesktopCall } from "@/lib/desktop-bridge";
 import { formatDuration } from "@/lib/audio";
@@ -261,6 +262,18 @@ export default function MeetingsPage() {
     } else analyze(data as Meeting);
   }
 
+  // The meeting notetaker bot left a meeting: its speaker-labelled transcript becomes a meeting, analysed like any other.
+  async function saveBotNotes(n: BotNotes) {
+    const { data, error } = await createClient()
+      .from("meetings")
+      .insert({ title: n.title.slice(0, 200), meeting_date: n.startedAt.toISOString(), attendees: n.attendees, transcript: n.transcript })
+      .select()
+      .single();
+    if (error) return setError(error.message);
+    await load();
+    await analyze(data as Meeting);
+  }
+
   async function createTask(m: Meeting, s: Suggestion) {
     setBusyId(s.id);
     const { error } = await createClient()
@@ -312,6 +325,8 @@ export default function MeetingsPage() {
           </div>
         )}
       </div>
+
+      {!desktopCall && <NotetakerPanel onNotes={saveBotNotes} />}
 
       {showRecorder && (
         <CallRecorder

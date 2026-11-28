@@ -6,14 +6,14 @@ the customer's own AI key, so anything that needs paid servers to hear audio (a 
 
 | Fireflies feature | What it does | ActionBrain | Status |
 |---|---|---|---|
-| **Bot** auto-joins calendar meetings | A participant records Zoom/Meet/Teams | No bot (costly servers, owner could hear calls). Instead: desktop helper + official transcripts | Different design |
+| **Bot** auto-joins calendar meetings | A participant records Zoom/Meet/Teams | **ActionBrain Notetaker** with the customer's own Vexa (hosted ~$0.30/h on their account, or self-hosted): send to a link now, or auto-join from Google Calendar; speaker-labelled transcript becomes notes | Done (M37) |
 | **Desktop app, no bot** (Zoom, Meet, Teams, Slack Huddles) | Records the computer's sound | **Call Notes helper**: WhatsApp, Teams, Zoom, Slack, and browser calls (Google Meet, WhatsApp Web) | Done (M34, M35) |
 | **Chrome extension** (Meet without a bot, live transcript) | Captures the Meet tab | Laptop recorder "On this computer" (M33); helper covers Meet automatically | Done; live transcript: later |
 | **Mobile app** (in-person) | Records on the phone | Phone recorder + Android share sheet + after-call recap | Done |
 | **Audio/video upload** | MP3/MP4/WAV/M4A | "Use a call recording" | Done |
 | **Dialers / API** | Aircall, RingCentral | Not planned (paid dialers) | Not planned |
-| Transcription, 100+ languages, auto-detect | | Whisper on the device, language choice or auto | Done |
-| **Speaker labels** | Who said what | Two sources are known (your microphone = You, computer sound = Others) | Next |
+| Transcription, 100+ languages, auto-detect | | Whisper on the device, or the customer's own **Sarvam (Tamil/Hindi code-mix)** or OpenAI key; bot detects language per speaker turn | Done (M36) |
+| **Speaker labels** | Who said what | Notetaker bot: real names from the meeting. Desktop: You/Others possible | Bot done; desktop next |
 | **Summary, decisions, action items** | | Meeting analysis: summary, decisions, tasks, commitments with quotes | Done |
 | Expandable summaries (see what was said) | | Each task and commitment keeps its exact quote | Done |
 | Custom notes | Tailored summaries | Later (a per-user prompt add-on) | Later |
